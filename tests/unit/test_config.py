@@ -11,4 +11,4 @@ def test_settings_require_positive_owner_id(monkeypatch: pytest.MonkeyPatch) -> 
 	monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://bot:bot@db/bot")
 
 	with pytest.raises(ValidationError):
-		Settings()
+		Settings()  # type: ignore[call-arg]
