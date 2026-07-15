@@ -1,5 +1,5 @@
-from pydantic import PostgresDsn, PositiveInt, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import PostgresDsn, PositiveInt, SecretStr
 
 
 class Settings(BaseSettings):
