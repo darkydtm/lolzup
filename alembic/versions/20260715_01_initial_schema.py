@@ -3,7 +3,6 @@
 from collections.abc import Sequence
 
 from alembic import op
-
 from lolzup.db.models import Base
 
 revision: str = "20260715_01"

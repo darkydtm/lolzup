@@ -1,19 +1,18 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import Connection, pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from lolzup.config import Settings
+from alembic import context
 from lolzup.db.models import Base
 
 config = context.config
 if config.config_file_name is not None:
 	fileConfig(config.config_file_name)
 
-settings = Settings()  # type: ignore[call-arg]
-config.set_main_option("sqlalchemy.url", str(settings.database_url))
+config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
 target_metadata = Base.metadata
 
 

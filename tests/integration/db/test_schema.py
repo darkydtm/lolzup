@@ -2,7 +2,7 @@ import asyncio
 import os
 
 import pytest
-from sqlalchemy import Connection, inspect
+from sqlalchemy import Connection, DateTime, inspect
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from lolzup.db.models import Base
@@ -51,7 +51,9 @@ def test_initial_schema_contains_required_tables_and_constraints() -> None:
 					for column in next_bump_type
 					if column["name"] == "next_bump_at_plain"
 				)
-				assert next_bump_column["type"].timezone is True
+				column_type = next_bump_column["type"]
+				assert isinstance(column_type, DateTime)
+				assert column_type.timezone is True
 
 			await connection.run_sync(assert_schema)
 		await engine.dispose()
