@@ -111,24 +111,28 @@ def test_scheduler_batches_due_topics_and_persists_partial_results() -> None:
 				)
 				topic_ids[thread_id] = topic.id
 
+		ordered_thread_ids = sorted(topic_ids, key=topic_ids.__getitem__)
+		unauthorized_thread_id, retry_thread_id, missing_thread_id = ordered_thread_ids[
+			:3
+		]
 		forum = FakeForum(
 			{
-				2: BumpResult(
+				retry_thread_id: BumpResult(
 					"unused",
-					2,
+					retry_thread_id,
 					BumpOutcome.RETRY,
 					NOW + timedelta(minutes=2),
 					"rate limited",
 				),
-				3: BumpResult(
+				missing_thread_id: BumpResult(
 					"unused",
-					3,
+					missing_thread_id,
 					BumpOutcome.NOT_FOUND,
 					error="not found",
 				),
-				4: BumpResult(
+				unauthorized_thread_id: BumpResult(
 					"unused",
-					4,
+					unauthorized_thread_id,
 					BumpOutcome.UNAUTHORIZED,
 					error="unauthorized",
 				),
@@ -148,21 +152,25 @@ def test_scheduler_batches_due_topics_and_persists_partial_results() -> None:
 
 		assert report.status is CycleStatus.RAN
 		assert report.claimed == 23
-		assert report.batches == 3
-		assert [len(batch) for batch in forum.batches] == [10, 10, 3]
-		assert report.succeeded == 20
+		assert report.batches == 1
+		assert [len(batch) for batch in forum.batches] == [10]
+		assert report.succeeded == 7
 		assert report.retried == 1
 		assert report.failed == 2
 
 		async with sessions.begin() as session:
-			assert await session.scalar(select(func.count(BumpAttempt.id))) == 23
+			assert await session.scalar(select(func.count(BumpAttempt.id))) == 10
 			raw_settings = await session.get(AppSettings, 1)
 			assert raw_settings is not None
 			assert raw_settings.api_paused
-			retry_topic = await TopicRepository(session, codec).get(topic_ids[2])
+			retry_topic = await TopicRepository(session, codec).get(
+				topic_ids[retry_thread_id]
+			)
 			assert retry_topic is not None
 			assert retry_topic.next_bump_at == NOW + timedelta(minutes=2)
-			missing_topic = await TopicRepository(session, codec).get(topic_ids[3])
+			missing_topic = await TopicRepository(session, codec).get(
+				topic_ids[missing_thread_id]
+			)
 			assert missing_topic is not None
 			assert missing_topic.next_bump_at is None
 			raw_topics = await session.scalars(select(Topic))

@@ -89,13 +89,15 @@ class SchedulerService:
 		succeeded = 0
 		retried = 0
 		failed = 0
-		for batch_topics in self._chunks(topics, MAX_BATCH_SIZE):
+		topic_batches = self._chunks(topics, MAX_BATCH_SIZE)
+		for batch_index, batch_topics in enumerate(topic_batches):
 			batches += 1
 			jobs = [
 				BumpJob(self._job_id(topic), topic.thread_id) for topic in batch_topics
 			]
 			results = await self._forum.bump_batch(jobs)
 			results_by_id = {result.job_id: result for result in results}
+			account_paused = False
 			for topic, job in zip(batch_topics, jobs, strict=True):
 				result = results_by_id.get(
 					job.job_id,
@@ -116,6 +118,19 @@ class SchedulerService:
 					retried += 1
 				else:
 					failed += 1
+				if result.outcome in {
+					BumpOutcome.UNAUTHORIZED,
+					BumpOutcome.FORBIDDEN,
+				}:
+					account_paused = True
+			if account_paused:
+				remaining = [
+					topic.id
+					for pending_batch in topic_batches[batch_index + 1 :]
+					for topic in pending_batch
+				]
+				await self._release_leases(remaining)
+				break
 		return CycleReport(
 			CycleStatus.RAN,
 			claimed=len(topics),
@@ -144,6 +159,14 @@ class SchedulerService:
 				self._claim_limit,
 			)
 		return CycleStatus.RAN, topics
+
+	async def _release_leases(self, topic_ids: Sequence[uuid.UUID]) -> None:
+		if not topic_ids:
+			return
+		async with self._sessions.begin() as session:
+			scheduler = SchedulerRepository(session, self._codec)
+			for topic_id in topic_ids:
+				await scheduler.clear_lease(topic_id)
 
 	async def _persist_result(
 		self,
