@@ -1,7 +1,7 @@
 import hmac
 import secrets
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 
 from lolzup.db.repositories import SecretEnvelopeRecord, SecretRepository
@@ -24,6 +24,12 @@ API_TOKEN_CONTEXT = b"secret_envelopes:1:api_token"
 SALT_BYTES = 16
 
 Clock = Callable[[], datetime]
+
+
+@dataclass(slots=True)
+class UnlockThrottleState:
+	failed_attempts: int = 0
+	next_attempt_at: datetime | None = None
 
 
 class AlreadyInitializedError(RuntimeError):
@@ -53,6 +59,7 @@ class SetupService:
 		argon_parameters: Argon2Parameters | None = None,
 		clock: Clock | None = None,
 		max_throttle_seconds: int = 60,
+		throttle_state: UnlockThrottleState | None = None,
 	) -> None:
 		if max_throttle_seconds <= 0:
 			raise ValueError("Maximum throttle delay must be positive")
@@ -61,8 +68,7 @@ class SetupService:
 		self._parameters = argon_parameters or Argon2Parameters()
 		self._clock = clock or (lambda: datetime.now(UTC))
 		self._max_throttle_seconds = max_throttle_seconds
-		self._failed_attempts = 0
-		self._next_attempt_at: datetime | None = None
+		self._throttle = throttle_state or UnlockThrottleState()
 
 	async def is_initialized(self) -> bool:
 		return await self._repository.get() is not None
@@ -99,8 +105,11 @@ class SetupService:
 
 	async def unlock(self, password: str) -> None:
 		now = self._as_utc(self._clock())
-		if self._next_attempt_at is not None and now < self._next_attempt_at:
-			raise UnlockThrottledError(self._next_attempt_at)
+		if (
+			self._throttle.next_attempt_at is not None
+			and now < self._throttle.next_attempt_at
+		):
+			raise UnlockThrottledError(self._throttle.next_attempt_at)
 
 		record = await self._repository.get()
 		if record is None:
@@ -232,13 +241,16 @@ class SetupService:
 		await self._repository.save(updated)
 
 	def _record_failure(self, now: datetime) -> None:
-		self._failed_attempts += 1
-		delay = min(2 ** (self._failed_attempts - 1), self._max_throttle_seconds)
-		self._next_attempt_at = now + timedelta(seconds=delay)
+		self._throttle.failed_attempts += 1
+		delay = min(
+			2 ** (self._throttle.failed_attempts - 1),
+			self._max_throttle_seconds,
+		)
+		self._throttle.next_attempt_at = now + timedelta(seconds=delay)
 
 	def _reset_throttle(self) -> None:
-		self._failed_attempts = 0
-		self._next_attempt_at = None
+		self._throttle.failed_attempts = 0
+		self._throttle.next_attempt_at = None
 
 	@staticmethod
 	def _as_utc(value: datetime) -> datetime:

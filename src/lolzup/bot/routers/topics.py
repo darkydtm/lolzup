@@ -26,8 +26,6 @@ from lolzup.topics.service import TopicNotFoundError, TopicService
 
 TOPIC_ID_KEY = "topic_id"
 
-topics_router = Router(name="topics")
-
 
 async def open_topics(
 	message: Message,
@@ -416,32 +414,34 @@ def _callback_topic(callback: CallbackQuery) -> tuple[int, uuid.UUID] | None:
 	return callback.message.chat.id, topic_id
 
 
-topics_router.message.register(open_topics, F.text == TOPICS_TEXT)
-topics_router.message.register(receive_topic_reference, TopicStates.reference)
-topics_router.message.register(receive_custom_interval, TopicStates.custom_interval)
-topics_router.callback_query.register(navigate_topics, F.data == "menu:topics")
-topics_router.callback_query.register(
-	navigate_topics, F.data.startswith("topics:page:")
-)
-topics_router.callback_query.register(begin_add_topic, F.data == "topics:add")
-topics_router.callback_query.register(open_topic, F.data.startswith("topic:open:"))
-topics_router.callback_query.register(
-	toggle_topic_auto, F.data.startswith("topic:auto:")
-)
-topics_router.callback_query.register(
-	toggle_custom_interval,
-	F.data.startswith("topic:custom:"),
-)
-topics_router.callback_query.register(
-	begin_custom_interval,
-	F.data.startswith("topic:interval:"),
-)
-topics_router.callback_query.register(bump_topic_now, F.data.startswith("topic:bump:"))
-topics_router.callback_query.register(
-	confirm_topic_removal,
-	F.data.startswith("topic:remove:"),
-)
-topics_router.callback_query.register(
-	remove_topic,
-	F.data.startswith("topic:remove-confirm:"),
-)
+def build_topics_router() -> Router:
+	router = Router(name="topics")
+	router.message.register(open_topics, F.text == TOPICS_TEXT)
+	router.message.register(receive_topic_reference, TopicStates.reference)
+	router.message.register(receive_custom_interval, TopicStates.custom_interval)
+	router.callback_query.register(navigate_topics, F.data == "menu:topics")
+	router.callback_query.register(navigate_topics, F.data.startswith("topics:page:"))
+	router.callback_query.register(begin_add_topic, F.data == "topics:add")
+	router.callback_query.register(open_topic, F.data.startswith("topic:open:"))
+	router.callback_query.register(toggle_topic_auto, F.data.startswith("topic:auto:"))
+	router.callback_query.register(
+		toggle_custom_interval,
+		F.data.startswith("topic:custom:"),
+	)
+	router.callback_query.register(
+		begin_custom_interval,
+		F.data.startswith("topic:interval:"),
+	)
+	router.callback_query.register(bump_topic_now, F.data.startswith("topic:bump:"))
+	router.callback_query.register(
+		confirm_topic_removal,
+		F.data.startswith("topic:remove:"),
+	)
+	router.callback_query.register(
+		remove_topic,
+		F.data.startswith("topic:remove-confirm:"),
+	)
+	return router
+
+
+topics_router = build_topics_router()

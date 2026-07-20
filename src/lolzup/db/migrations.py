@@ -333,10 +333,7 @@ class EncryptionMigrationService:
 
 	@staticmethod
 	def _active_policy(settings: AppSettings) -> EncryptionPolicy:
-		if settings.encryption_categories.startswith("{"):
-			stored = EncryptionPolicy.deserialize(settings.encryption_categories)
-			return EncryptionPolicy(settings.encryption_mode, stored.categories)
-		return EncryptionPolicy(settings.encryption_mode)
+		return policy_from_settings(settings)
 
 	@staticmethod
 	def _record(model: EncryptionMigration) -> EncryptionMigrationRecord:
@@ -350,3 +347,17 @@ class EncryptionMigrationService:
 			row_cursor=model.row_cursor,
 			error=model.error,
 		)
+
+
+async def load_active_policy(session: AsyncSession) -> EncryptionPolicy:
+	settings = await session.get(AppSettings, 1)
+	if settings is None:
+		return EncryptionPolicy(EncryptionMode.FULL)
+	return policy_from_settings(settings)
+
+
+def policy_from_settings(settings: AppSettings) -> EncryptionPolicy:
+	if settings.encryption_categories.startswith("{"):
+		stored = EncryptionPolicy.deserialize(settings.encryption_categories)
+		return EncryptionPolicy(settings.encryption_mode, stored.categories)
+	return EncryptionPolicy(settings.encryption_mode)

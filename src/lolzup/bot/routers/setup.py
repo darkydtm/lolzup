@@ -26,8 +26,6 @@ from lolzup.security.setup import (
 
 SETUP_PASSWORD_KEY = "setup_password"
 
-setup_router = Router(name="setup")
-
 
 async def start_bot(
 	message: Message,
@@ -262,20 +260,26 @@ def _format_datetime(value: datetime) -> str:
 	return value.strftime("%d.%m.%Y %H:%M:%S %Z")
 
 
-setup_router.message.register(start_bot, CommandStart())
-setup_router.message.register(
-	receive_setup_password,
-	SetupStates.password,
-)
-setup_router.message.register(
-	receive_setup_password_confirmation,
-	SetupStates.password_confirmation,
-)
-setup_router.message.register(
-	receive_api_token,
-	SetupStates.api_token,
-)
-setup_router.message.register(
-	receive_unlock_password,
-	SetupStates.unlock_password,
-)
+def build_setup_router() -> Router:
+	router = Router(name="setup")
+	router.message.register(start_bot, CommandStart())
+	router.message.register(
+		receive_setup_password,
+		SetupStates.password,
+	)
+	router.message.register(
+		receive_setup_password_confirmation,
+		SetupStates.password_confirmation,
+	)
+	router.message.register(
+		receive_api_token,
+		SetupStates.api_token,
+	)
+	router.message.register(
+		receive_unlock_password,
+		SetupStates.unlock_password,
+	)
+	return router
+
+
+setup_router = build_setup_router()

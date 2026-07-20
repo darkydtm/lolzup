@@ -21,8 +21,6 @@ from lolzup.bot.keyboards import default_reply_keyboard, input_reply_keyboard
 from lolzup.bot.menu import MenuSection, MenuService
 from lolzup.bot.states import AdministratorStates, set_input_return_menu
 
-admins_router = Router(name="administrators")
-
 
 async def open_administrators(
 	callback: CallbackQuery,
@@ -234,20 +232,26 @@ def _callback_user(callback: CallbackQuery) -> tuple[int, uuid.UUID] | None:
 	return callback.message.chat.id, user_id
 
 
-admins_router.message.register(
-	receive_administrator_identity,
-	AdministratorStates.identity,
-)
-admins_router.callback_query.register(open_administrators, F.data == "admins:list")
-admins_router.callback_query.register(
-	begin_add_administrator,
-	F.data == "admins:add",
-)
-admins_router.callback_query.register(
-	confirm_administrator_removal,
-	F.data.startswith("admin:remove:"),
-)
-admins_router.callback_query.register(
-	remove_administrator,
-	F.data.startswith("admin:remove-confirm:"),
-)
+def build_admins_router() -> Router:
+	router = Router(name="administrators")
+	router.message.register(
+		receive_administrator_identity,
+		AdministratorStates.identity,
+	)
+	router.callback_query.register(open_administrators, F.data == "admins:list")
+	router.callback_query.register(
+		begin_add_administrator,
+		F.data == "admins:add",
+	)
+	router.callback_query.register(
+		confirm_administrator_removal,
+		F.data.startswith("admin:remove:"),
+	)
+	router.callback_query.register(
+		remove_administrator,
+		F.data.startswith("admin:remove-confirm:"),
+	)
+	return router
+
+
+admins_router = build_admins_router()

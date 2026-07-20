@@ -35,8 +35,6 @@ from lolzup.topics.service import TopicService
 CURRENT_PASSWORD_KEY = "current_password"
 NEW_PASSWORD_KEY = "new_password"
 
-settings_router = Router(name="settings")
-
 
 async def open_settings_message(
 	message: Message,
@@ -738,76 +736,80 @@ def _policy_from_callback(data: str) -> EncryptionPolicy:
 	raise ValueError("Encryption callback is invalid")
 
 
-settings_router.message.register(open_settings_message, F.text == SETTINGS_TEXT)
-settings_router.message.register(
-	receive_global_interval,
-	SettingsStates.global_interval,
-)
-settings_router.message.register(
-	receive_retry_schedule,
-	SettingsStates.retry_schedule,
-)
-settings_router.message.register(receive_api_token, SettingsStates.api_token)
-settings_router.message.register(
-	receive_current_password,
-	SettingsStates.current_encryption_password,
-)
-settings_router.message.register(
-	receive_new_password,
-	SettingsStates.encryption_password,
-)
-settings_router.message.register(
-	receive_new_password_confirmation,
-	SettingsStates.encryption_password_confirmation,
-)
-settings_router.callback_query.register(
-	open_settings_callback, F.data == "menu:settings"
-)
-settings_router.callback_query.register(
-	toggle_global_bump,
-	F.data == "settings:global-toggle",
-)
-settings_router.callback_query.register(
-	begin_global_interval,
-	F.data == "settings:global-interval",
-)
-settings_router.callback_query.register(
-	begin_retry_schedule,
-	F.data == "settings:retries",
-)
-settings_router.callback_query.register(
-	toggle_notification,
-	F.data.in_({"settings:notify-success", "settings:notify-errors"}),
-)
-settings_router.callback_query.register(
-	begin_api_token,
-	F.data == "settings:api-token",
-)
-settings_router.callback_query.register(
-	begin_key_change,
-	F.data == "settings:change-key",
-)
-settings_router.callback_query.register(
-	open_encryption_modes,
-	F.data == "encryption:modes",
-)
-settings_router.callback_query.register(
-	open_custom_encryption,
-	F.data.startswith("encryption:custom-mask:"),
-)
-settings_router.callback_query.register(
-	confirm_disable_encryption,
-	F.data == "encryption:disable",
-)
-settings_router.callback_query.register(
-	apply_encryption_policy,
-	F.data.in_({"encryption:apply-full", "encryption:apply-disabled"}),
-)
-settings_router.callback_query.register(
-	apply_encryption_policy,
-	F.data.startswith("encryption:apply-custom:"),
-)
-settings_router.callback_query.register(
-	resume_encryption_migration,
-	F.data == "encryption:resume",
-)
+def build_settings_router() -> Router:
+	router = Router(name="settings")
+	router.message.register(open_settings_message, F.text == SETTINGS_TEXT)
+	router.message.register(
+		receive_global_interval,
+		SettingsStates.global_interval,
+	)
+	router.message.register(
+		receive_retry_schedule,
+		SettingsStates.retry_schedule,
+	)
+	router.message.register(receive_api_token, SettingsStates.api_token)
+	router.message.register(
+		receive_current_password,
+		SettingsStates.current_encryption_password,
+	)
+	router.message.register(
+		receive_new_password,
+		SettingsStates.encryption_password,
+	)
+	router.message.register(
+		receive_new_password_confirmation,
+		SettingsStates.encryption_password_confirmation,
+	)
+	router.callback_query.register(open_settings_callback, F.data == "menu:settings")
+	router.callback_query.register(
+		toggle_global_bump,
+		F.data == "settings:global-toggle",
+	)
+	router.callback_query.register(
+		begin_global_interval,
+		F.data == "settings:global-interval",
+	)
+	router.callback_query.register(
+		begin_retry_schedule,
+		F.data == "settings:retries",
+	)
+	router.callback_query.register(
+		toggle_notification,
+		F.data.in_({"settings:notify-success", "settings:notify-errors"}),
+	)
+	router.callback_query.register(
+		begin_api_token,
+		F.data == "settings:api-token",
+	)
+	router.callback_query.register(
+		begin_key_change,
+		F.data == "settings:change-key",
+	)
+	router.callback_query.register(
+		open_encryption_modes,
+		F.data == "encryption:modes",
+	)
+	router.callback_query.register(
+		open_custom_encryption,
+		F.data.startswith("encryption:custom-mask:"),
+	)
+	router.callback_query.register(
+		confirm_disable_encryption,
+		F.data == "encryption:disable",
+	)
+	router.callback_query.register(
+		apply_encryption_policy,
+		F.data.in_({"encryption:apply-full", "encryption:apply-disabled"}),
+	)
+	router.callback_query.register(
+		apply_encryption_policy,
+		F.data.startswith("encryption:apply-custom:"),
+	)
+	router.callback_query.register(
+		resume_encryption_migration,
+		F.data == "encryption:resume",
+	)
+	return router
+
+
+settings_router = build_settings_router()

@@ -8,8 +8,6 @@ from lolzup.bot.keyboards import (
 )
 from lolzup.bot.menu import MenuSection, MenuService, menu_view
 
-menu_router = Router(name="menu")
-
 
 async def _render_for_message(
 	message: Message,
@@ -61,8 +59,14 @@ async def navigate_inline(
 	await callback.answer()
 
 
-menu_router.message.register(open_main_menu, F.text == MAIN_MENU_TEXT)
-menu_router.callback_query.register(
-	navigate_inline,
-	F.data == "menu:main",
-)
+def build_menu_router() -> Router:
+	router = Router(name="menu")
+	router.message.register(open_main_menu, F.text == MAIN_MENU_TEXT)
+	router.callback_query.register(
+		navigate_inline,
+		F.data == "menu:main",
+	)
+	return router
+
+
+menu_router = build_menu_router()

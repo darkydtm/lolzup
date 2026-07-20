@@ -10,6 +10,8 @@ from aiogram.types import Message
 from lolzup.bot.menu import MenuSection, MenuService
 from lolzup.bot.routers.cancel import cancel_active_input
 from lolzup.bot.states import RETURN_MENU_KEY
+from lolzup.security.crypto import generate_data_key
+from lolzup.security.runtime import RuntimeVault
 
 
 @pytest.mark.unit
@@ -26,12 +28,15 @@ def test_global_cancel_clears_state_and_returns_to_relevant_menu() -> None:
 		menu_service = Mock(spec=MenuService)
 		menu_service.render = AsyncMock()
 		user_id = uuid.uuid4()
+		vault = RuntimeVault()
+		await vault.unlock(generate_data_key())
 
 		await cancel_active_input(
 			cast(Message, message),
 			cast(FSMContext, state),
 			cast(MenuService, menu_service),
 			user_id,
+			vault,
 		)
 
 		state.clear.assert_awaited_once()
