@@ -14,8 +14,25 @@ from lolzup.security.runtime import RuntimeVault
 class FakeUsers:
 	users: dict[int, UserRecord]
 
+	async def get(self, user_id: uuid.UUID) -> UserRecord | None:
+		return next(
+			(user for user in self.users.values() if user.id == user_id),
+			None,
+		)
+
 	async def get_by_telegram_id(self, telegram_id: int) -> UserRecord | None:
 		return self.users.get(telegram_id)
+
+	async def get_by_username(self, username: str) -> UserRecord | None:
+		return next(
+			(
+				user
+				for user in self.users.values()
+				if user.username is not None
+				and user.username.casefold() == username.casefold()
+			),
+			None,
+		)
 
 	async def upsert(self, telegram_id: int, username: str | None) -> UserRecord:
 		user = self.users.get(telegram_id)
@@ -29,8 +46,17 @@ class FakeUsers:
 class FakeAdmins:
 	admin_ids: set[uuid.UUID]
 
+	async def add(self, user_id: uuid.UUID) -> None:
+		self.admin_ids.add(user_id)
+
+	async def remove(self, user_id: uuid.UUID) -> None:
+		self.admin_ids.discard(user_id)
+
 	async def contains(self, user_id: uuid.UUID) -> bool:
 		return user_id in self.admin_ids
+
+	async def list_user_ids(self) -> list[uuid.UUID]:
+		return list(self.admin_ids)
 
 
 def build_access() -> tuple[AccessService, RuntimeVault, FakeUsers, UserRecord]:
@@ -102,5 +128,42 @@ def test_interacting_user_is_recorded_case_preserving() -> None:
 
 		assert user.username == "DisplayName"
 		assert users.users[300] == user
+
+	asyncio.run(scenario())
+
+
+@pytest.mark.unit
+def test_owner_manages_administrators_by_id_and_known_username() -> None:
+	async def scenario() -> None:
+		access, vault, users, existing_admin = build_access()
+		await vault.unlock(generate_data_key())
+
+		numeric = await access.add_administrator(100, "300")
+		known = UserRecord(uuid.uuid4(), 400, "KnownUser")
+		users.users[known.telegram_id] = known
+		username = await access.add_administrator(100, "@knownuser")
+
+		assert numeric.telegram_id == 300
+		assert username == known
+		assert set(await access.list_administrators(100)) == {
+			existing_admin,
+			numeric,
+			known,
+		}
+
+		await access.remove_administrator(100, numeric.id)
+		assert numeric not in await access.list_administrators(100)
+
+	asyncio.run(scenario())
+
+
+@pytest.mark.unit
+def test_admin_cannot_manage_other_administrators() -> None:
+	async def scenario() -> None:
+		access, vault, _, _ = build_access()
+		await vault.unlock(generate_data_key())
+
+		with pytest.raises(AccessDeniedError):
+			await access.add_administrator(200, "300")
 
 	asyncio.run(scenario())

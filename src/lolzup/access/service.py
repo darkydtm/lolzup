@@ -31,14 +31,36 @@ class AccessDeniedError(PermissionError):
 	pass
 
 
+class InvalidAdministratorIdentityError(ValueError):
+	pass
+
+
+class UnknownAdministratorError(LookupError):
+	pass
+
+
+class AlreadyAdministratorError(RuntimeError):
+	pass
+
+
 class UserLookup(Protocol):
+	async def get(self, user_id: uuid.UUID) -> UserRecord | None: ...
+
 	async def get_by_telegram_id(self, telegram_id: int) -> UserRecord | None: ...
+
+	async def get_by_username(self, username: str) -> UserRecord | None: ...
 
 	async def upsert(self, telegram_id: int, username: str | None) -> UserRecord: ...
 
 
 class AdminLookup(Protocol):
+	async def add(self, user_id: uuid.UUID) -> None: ...
+
+	async def remove(self, user_id: uuid.UUID) -> None: ...
+
 	async def contains(self, user_id: uuid.UUID) -> bool: ...
+
+	async def list_user_ids(self) -> list[uuid.UUID]: ...
 
 
 OWNER_ACTIONS = frozenset(AccessAction)
@@ -100,6 +122,74 @@ class AccessService:
 		if not allowed:
 			raise AccessDeniedError("The actor is not allowed to perform this action")
 		return role
+
+	async def add_administrator(
+		self,
+		actor_telegram_id: int,
+		identity: str,
+	) -> UserRecord:
+		await self.require(actor_telegram_id, AccessAction.MANAGE_ADMINS)
+		user = await self._resolve_administrator(identity)
+		if user.telegram_id == self._owner_id:
+			raise InvalidAdministratorIdentityError(
+				"The owner cannot be added as an administrator"
+			)
+		if await self._admins.contains(user.id):
+			raise AlreadyAdministratorError
+		await self._admins.add(user.id)
+		return user
+
+	async def remove_administrator(
+		self,
+		actor_telegram_id: int,
+		user_id: uuid.UUID,
+	) -> None:
+		await self.require(actor_telegram_id, AccessAction.MANAGE_ADMINS)
+		if not await self._admins.contains(user_id):
+			raise UnknownAdministratorError
+		await self._admins.remove(user_id)
+
+	async def list_administrators(
+		self,
+		actor_telegram_id: int,
+	) -> list[UserRecord]:
+		await self.require(actor_telegram_id, AccessAction.MANAGE_ADMINS)
+		users: list[UserRecord] = []
+		for user_id in await self._admins.list_user_ids():
+			user = await self._users.get(user_id)
+			if user is not None:
+				users.append(user)
+		return users
+
+	async def _resolve_administrator(self, identity: str) -> UserRecord:
+		value = identity.strip()
+		if value.startswith("@"):
+			value = value[1:]
+		if not value:
+			raise InvalidAdministratorIdentityError(
+				"Administrator identity must not be empty"
+			)
+		if value.isdecimal():
+			telegram_id = int(value)
+			if telegram_id <= 0:
+				raise InvalidAdministratorIdentityError(
+					"Administrator Telegram ID must be positive"
+				)
+			user = await self._users.get_by_telegram_id(telegram_id)
+			return (
+				user
+				if user is not None
+				else await self._users.upsert(telegram_id, None)
+			)
+		if not all(
+			character.isascii() and (character.isalnum() or character == "_")
+			for character in value
+		):
+			raise InvalidAdministratorIdentityError("Administrator username is invalid")
+		user = await self._users.get_by_username(value)
+		if user is None:
+			raise UnknownAdministratorError
+		return user
 
 
 class _RoleFilter(BaseFilter):

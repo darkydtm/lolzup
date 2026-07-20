@@ -265,6 +265,10 @@ class UserRepository:
 		await self._session.flush()
 		return self._read(model)
 
+	async def get(self, user_id: uuid.UUID) -> UserRecord | None:
+		model = await self._session.get(KnownUser, user_id)
+		return None if model is None else self._read(model)
+
 	async def get_by_telegram_id(self, telegram_id: int) -> UserRecord | None:
 		model = await self._session.scalar(
 			select(KnownUser).where(
@@ -337,6 +341,13 @@ class AdminRepository:
 				select(Administrator.id).where(Administrator.user_id == user_id)
 			)
 			is not None
+		)
+
+	async def list_user_ids(self) -> list[uuid.UUID]:
+		return list(
+			await self._session.scalars(
+				select(Administrator.user_id).order_by(Administrator.created_at)
+			)
 		)
 
 

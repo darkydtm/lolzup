@@ -46,6 +46,8 @@ def test_repositories_hide_encrypted_values_and_support_indexes() -> None:
 
 			await admins.add(user.id)
 			assert await admins.contains(user.id)
+			assert await admins.list_user_ids() == [user.id]
+			assert await users.get(user.id) == user
 
 			topic = await topics.add(5523020, "Encrypted topic")
 			assert await topics.get(topic.id) == topic
