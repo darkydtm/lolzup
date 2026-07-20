@@ -19,6 +19,7 @@ DEFAULT_TIMEOUT_SECONDS = 10.0
 
 Sleep = Callable[[float], Awaitable[None]]
 Clock = Callable[[], datetime]
+TokenProvider = Callable[[], Awaitable[str]]
 
 
 class ForumApiError(RuntimeError):
@@ -48,19 +49,21 @@ class ForumApiClient:
 	def __init__(
 		self,
 		client: httpx.AsyncClient,
-		token: str,
+		token: str | TokenProvider,
 		*,
 		timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
 		clock: Clock | None = None,
 		sleep: Sleep = asyncio.sleep,
 	) -> None:
-		if not token:
+		if isinstance(token, str) and not token:
 			raise ValueError("Forum API token must not be empty")
 		if timeout_seconds <= 0:
 			raise ValueError("Forum API timeout must be positive")
 
 		self._client = client
-		self._authorization = f"Bearer {token}"
+		self._token_provider = (
+			self._static_token_provider(token) if isinstance(token, str) else token
+		)
 		self._timeout = httpx.Timeout(timeout_seconds)
 		self._clock = clock or (lambda: datetime.now(UTC))
 		self._sleep = sleep
@@ -144,11 +147,17 @@ class ForumApiClient:
 	async def _request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
 		async with self._request_lock:
 			await self._wait_for_rate_limit()
+			token = await self._token_provider()
+			if not token:
+				raise ForumApiError(
+					"Forum API token is unavailable",
+					ForumErrorKind.UNAUTHORIZED,
+				)
 			try:
 				response = await self._client.request(
 					method,
 					url,
-					headers={"Authorization": self._authorization},
+					headers={"Authorization": f"Bearer {token}"},
 					timeout=self._timeout,
 					**kwargs,
 				)
@@ -159,6 +168,13 @@ class ForumApiClient:
 				) from error
 			self._update_rate_limit(response)
 			return response
+
+	@staticmethod
+	def _static_token_provider(token: str) -> TokenProvider:
+		async def provide() -> str:
+			return token
+
+		return provide
 
 	async def _wait_for_rate_limit(self) -> None:
 		if self._blocked_until is None:

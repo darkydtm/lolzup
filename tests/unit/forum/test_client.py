@@ -66,6 +66,36 @@ def test_get_thread_uses_auth_and_parses_title() -> None:
 
 
 @pytest.mark.unit
+def test_async_token_provider_is_resolved_for_each_request() -> None:
+	tokens = iter(["first-token", "second-token"])
+	authorizations: list[str] = []
+
+	async def token_provider() -> str:
+		return next(tokens)
+
+	def handler(request: httpx.Request) -> httpx.Response:
+		authorizations.append(request.headers["Authorization"])
+		thread_id = int(request.url.path.rsplit("/", 1)[1])
+		return httpx.Response(
+			200,
+			json={"thread": {"thread_id": thread_id, "title": "Topic"}},
+		)
+
+	async def scenario() -> None:
+		http_client = httpx.AsyncClient(
+			transport=httpx.MockTransport(handler),
+			base_url=BASE_URL,
+		)
+		forum = ForumApiClient(http_client, token_provider)
+		async with http_client:
+			await forum.get_thread(42)
+			await forum.get_thread(43)
+
+	run(scenario())
+	assert authorizations == ["Bearer first-token", "Bearer second-token"]
+
+
+@pytest.mark.unit
 def test_bump_batch_posts_jobs_and_maps_partial_results() -> None:
 	def handler(request: httpx.Request) -> httpx.Response:
 		assert request.method == "POST"
