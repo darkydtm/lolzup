@@ -136,7 +136,7 @@ class ForumApiClient:
 					BumpResult(
 						job.job_id,
 						job.thread_id,
-						BumpOutcome.ERROR,
+						BumpOutcome.RETRY,
 						error="Forum API omitted the batch job result",
 					)
 				)

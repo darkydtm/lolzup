@@ -140,6 +140,27 @@ def test_bump_batch_posts_jobs_and_maps_partial_results() -> None:
 
 
 @pytest.mark.unit
+def test_bump_batch_retries_job_omitted_from_response() -> None:
+	def handler(_: httpx.Request) -> httpx.Response:
+		return httpx.Response(
+			200,
+			json={"jobs": {"topic-42": {"status": 200}}},
+		)
+
+	async def scenario() -> None:
+		http_client, forum = client_for(httpx.MockTransport(handler))
+		async with http_client:
+			results = await forum.bump_batch(
+				[BumpJob("topic-42", 42), BumpJob("topic-43", 43)]
+			)
+		assert results[0].outcome is BumpOutcome.SUCCESS
+		assert results[1].outcome is BumpOutcome.RETRY
+		assert results[1].error == "Forum API omitted the batch job result"
+
+	run(scenario())
+
+
+@pytest.mark.unit
 def test_bump_batch_accepts_list_response_and_explicit_retry() -> None:
 	def handler(_: httpx.Request) -> httpx.Response:
 		return httpx.Response(
