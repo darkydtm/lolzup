@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, TypeVar, cast
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -500,6 +500,20 @@ class AttemptRepository:
 		self._session.add(model)
 		await self._session.flush()
 		return model.id
+
+	async def retry_count(
+		self,
+		topic_id: uuid.UUID,
+		since: datetime | None,
+	) -> int:
+		query = select(func.count(BumpAttempt.id)).where(
+			BumpAttempt.topic_id == topic_id,
+			BumpAttempt.outcome == AttemptOutcome.RETRY,
+			BumpAttempt.is_manual.is_(False),
+		)
+		if since is not None:
+			query = query.where(BumpAttempt.created_at > since)
+		return int(await self._session.scalar(query) or 0)
 
 	def _assign(self, model: BumpAttempt, field: str, value: Value | None) -> None:
 		stored = self._codec.encode(
