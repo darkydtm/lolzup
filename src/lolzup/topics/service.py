@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Protocol
@@ -173,6 +173,29 @@ class TopicService:
 	async def set_global_enabled(self, enabled: bool) -> SettingsRecord:
 		settings = await self._settings.get_or_create()
 		updated = replace(settings, global_bump_enabled=enabled)
+		await self._settings.save(updated)
+		return updated
+
+	async def set_retry_schedule(self, schedule: Sequence[int]) -> SettingsRecord:
+		if not schedule or any(delay <= 0 for delay in schedule):
+			raise ValueError("Retry schedule must contain positive delays")
+		settings = await self._settings.get_or_create()
+		updated = replace(settings, retry_schedule=list(schedule))
+		await self._settings.save(updated)
+		return updated
+
+	async def set_notifications(
+		self,
+		*,
+		success: bool | None = None,
+		errors: bool | None = None,
+	) -> SettingsRecord:
+		settings = await self._settings.get_or_create()
+		updated = replace(
+			settings,
+			notify_success=settings.notify_success if success is None else success,
+			notify_errors=settings.notify_errors if errors is None else errors,
+		)
 		await self._settings.save(updated)
 		return updated
 

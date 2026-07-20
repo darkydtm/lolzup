@@ -79,12 +79,6 @@ def settings_inline_keyboard() -> InlineKeyboardMarkup:
 		inline_keyboard=[
 			[
 				InlineKeyboardButton(
-					text="Администраторы",
-					callback_data="admins:list",
-				)
-			],
-			[
-				InlineKeyboardButton(
 					text=MAIN_MENU_TEXT,
 					callback_data="menu:main",
 				)

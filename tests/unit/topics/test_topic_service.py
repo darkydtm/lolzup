@@ -248,6 +248,21 @@ def test_global_interval_updates_only_global_topics() -> None:
 
 
 @pytest.mark.unit
+def test_retry_and_notification_settings_are_updated() -> None:
+	async def scenario() -> None:
+		service, _, settings, _, _ = build_service()
+
+		await service.set_retry_schedule([120, 600])
+		await service.set_notifications(success=True, errors=False)
+
+		assert settings.record.retry_schedule == [120, 600]
+		assert settings.record.notify_success
+		assert not settings.record.notify_errors
+
+	asyncio.run(scenario())
+
+
+@pytest.mark.unit
 def test_successful_manual_bump_uses_single_batch_job_and_reschedules() -> None:
 	async def scenario() -> None:
 		topic = topic_record(custom_interval_enabled=True, custom_interval_seconds=3600)

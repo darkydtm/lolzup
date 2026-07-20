@@ -32,5 +32,7 @@ class AdministratorStates(StatesGroup):
 class SettingsStates(StatesGroup):
 	global_interval = State()
 	retry_schedule = State()
+	api_token = State()
+	current_encryption_password = State()
 	encryption_password = State()
 	encryption_password_confirmation = State()
