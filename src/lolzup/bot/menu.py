@@ -37,7 +37,11 @@ class MenuView:
 	reply_markup: InlineKeyboardMarkup
 
 
-def menu_view(section: MenuSection, global_enabled: bool = True) -> MenuView:
+def menu_view(
+	section: MenuSection,
+	global_enabled: bool = True,
+	can_toggle_global: bool = True,
+) -> MenuView:
 	if section is MenuSection.TOPICS:
 		return MenuView(
 			text="Темы\n\nСписок тем пуст.",
@@ -52,7 +56,7 @@ def menu_view(section: MenuSection, global_enabled: bool = True) -> MenuView:
 	status = "включено" if global_enabled else "выключено"
 	return MenuView(
 		text=f"Главное меню\n\nАвтоподнятие: {status}",
-		reply_markup=main_inline_keyboard(global_enabled),
+		reply_markup=main_inline_keyboard(global_enabled, can_toggle_global),
 	)
 
 

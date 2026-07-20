@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import (
 	create_async_engine,
 )
 
-from lolzup.access import AccessService
+from lolzup.access import AccessAction, AccessService
 from lolzup.bot.menu import MenuService
 from lolzup.bot.routers import build_routers
 from lolzup.config import Settings
@@ -116,11 +116,18 @@ class DependencyMiddleware(BaseMiddleware):
 		event_user = data.get("event_from_user")
 		menu_user_id = await self._menu_user_id(users, event_user)
 		global_enabled = False
+		can_manage_global_bump = False
 		if self._vault.is_unlocked:
 			global_enabled = (await settings.get_or_create()).global_bump_enabled
+			if isinstance(event_user, User):
+				can_manage_global_bump = await access.allows(
+					event_user.id,
+					AccessAction.MANAGE_GLOBAL_BUMP,
+				)
 		data.update(
 			{
 				"access_service": access,
+				"can_manage_global_bump": can_manage_global_bump,
 				"global_bump_enabled": global_enabled,
 				"menu_service": MenuService(
 					self._bot,

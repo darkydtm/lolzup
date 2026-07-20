@@ -99,6 +99,7 @@ def test_admin_has_only_non_privileged_actions_when_unlocked() -> None:
 			AccessAction.MANAGE_API_TOKEN,
 			AccessAction.MANAGE_ENCRYPTION,
 			AccessAction.MANAGE_ADMINS,
+			AccessAction.MANAGE_GLOBAL_BUMP,
 		):
 			assert not await access.allows(200, action)
 

@@ -80,6 +80,7 @@ def test_owner_view_contains_security_controls_but_admin_view_does_not() -> None
 	assert "admins:list" in owner_callbacks
 	assert "settings:api-token" not in admin_callbacks
 	assert "encryption:modes" not in admin_callbacks
+	assert "settings:global-toggle" not in admin_callbacks
 
 
 @pytest.mark.unit
@@ -92,16 +93,15 @@ def test_custom_mask_selects_only_requested_categories() -> None:
 
 
 @pytest.mark.unit
-def test_admin_can_toggle_global_bump() -> None:
+def test_admin_cannot_toggle_global_bump() -> None:
 	async def scenario() -> None:
 		incoming = callback("settings:global-toggle", telegram_id=200)
 		access = Mock(spec=AccessService)
-		access.require = AsyncMock(return_value=ActorRole.ADMIN)
+		access.require = AsyncMock(side_effect=AccessDeniedError)
 		topics = Mock(spec=TopicService)
-		topics.settings = AsyncMock(return_value=settings())
 		topics.set_global_enabled = AsyncMock()
 		migrations = Mock(spec=EncryptionMigrationService)
-		migrations.status = AsyncMock(return_value=migration())
+		migrations.status = AsyncMock()
 		menu = Mock(spec=MenuService)
 		menu.render = AsyncMock()
 
@@ -114,8 +114,13 @@ def test_admin_can_toggle_global_bump() -> None:
 			uuid.uuid4(),
 		)
 
-		topics.set_global_enabled.assert_awaited_once_with(False)
-		menu.render.assert_awaited_once()
+		topics.set_global_enabled.assert_not_awaited()
+		migrations.status.assert_not_awaited()
+		menu.render.assert_not_awaited()
+		incoming.answer.assert_awaited_once_with(
+			"Доступ запрещен.",
+			show_alert=True,
+		)
 
 	asyncio.run(scenario())
 

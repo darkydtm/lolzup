@@ -48,40 +48,46 @@ def settings_view(
 				f"Миграция: {_migration_text(migration.status)}",
 			]
 		)
-	rows = [
+	rows = []
+	if role is ActorRole.OWNER:
+		rows.append(
+			[
+				InlineKeyboardButton(
+					text=(
+						"Выключить автоподнятие"
+						if settings.global_bump_enabled
+						else "Включить автоподнятие"
+					),
+					callback_data="settings:global-toggle",
+				)
+			]
+		)
+	rows.extend(
 		[
-			InlineKeyboardButton(
-				text=(
-					"Выключить автоподнятие"
-					if settings.global_bump_enabled
-					else "Включить автоподнятие"
+			[
+				InlineKeyboardButton(
+					text="Изменить глобальный интервал",
+					callback_data="settings:global-interval",
+				)
+			],
+			[
+				InlineKeyboardButton(
+					text="Настроить повторы",
+					callback_data="settings:retries",
+				)
+			],
+			[
+				InlineKeyboardButton(
+					text="Уведомления об успехе",
+					callback_data="settings:notify-success",
 				),
-				callback_data="settings:global-toggle",
-			)
-		],
-		[
-			InlineKeyboardButton(
-				text="Изменить глобальный интервал",
-				callback_data="settings:global-interval",
-			)
-		],
-		[
-			InlineKeyboardButton(
-				text="Настроить повторы",
-				callback_data="settings:retries",
-			)
-		],
-		[
-			InlineKeyboardButton(
-				text="Уведомления об успехе",
-				callback_data="settings:notify-success",
-			),
-			InlineKeyboardButton(
-				text="Уведомления об ошибках",
-				callback_data="settings:notify-errors",
-			),
-		],
-	]
+				InlineKeyboardButton(
+					text="Уведомления об ошибках",
+					callback_data="settings:notify-errors",
+				),
+			],
+		]
+	)
 	if role is ActorRole.OWNER:
 		rows.extend(
 			[

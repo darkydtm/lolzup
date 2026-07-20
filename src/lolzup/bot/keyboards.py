@@ -40,25 +40,30 @@ def input_reply_keyboard() -> ReplyKeyboardMarkup:
 	)
 
 
-def main_inline_keyboard(global_enabled: bool) -> InlineKeyboardMarkup:
+def main_inline_keyboard(
+	global_enabled: bool,
+	can_toggle_global: bool = True,
+) -> InlineKeyboardMarkup:
 	status = "Выключить автоподнятие" if global_enabled else "Включить автоподнятие"
-	return InlineKeyboardMarkup(
-		inline_keyboard=[
-			[
-				InlineKeyboardButton(text=TOPICS_TEXT, callback_data="menu:topics"),
-				InlineKeyboardButton(
-					text=SETTINGS_TEXT,
-					callback_data="menu:settings",
-				),
-			],
+	rows = [
+		[
+			InlineKeyboardButton(text=TOPICS_TEXT, callback_data="menu:topics"),
+			InlineKeyboardButton(
+				text=SETTINGS_TEXT,
+				callback_data="menu:settings",
+			),
+		]
+	]
+	if can_toggle_global:
+		rows.append(
 			[
 				InlineKeyboardButton(
 					text=status,
 					callback_data="scheduler:toggle",
 				)
-			],
-		]
-	)
+			]
+		)
+	return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def back_to_main_keyboard() -> InlineKeyboardMarkup:

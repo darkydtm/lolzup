@@ -18,6 +18,7 @@ async def cancel_active_input(
 	menu_user_id: uuid.UUID,
 	runtime_vault: RuntimeVault,
 	global_bump_enabled: bool = True,
+	can_manage_global_bump: bool = True,
 ) -> None:
 	state_data = await state.get_data()
 	raw_section = state_data.get(RETURN_MENU_KEY, MenuSection.MAIN.value)
@@ -31,7 +32,7 @@ async def cancel_active_input(
 		await menu_service.render(
 			menu_user_id,
 			message.chat.id,
-			menu_view(section, global_bump_enabled),
+			menu_view(section, global_bump_enabled, can_manage_global_bump),
 		)
 	await message.answer(
 		"Действие отменено.",

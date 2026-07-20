@@ -21,6 +21,7 @@ class AccessAction(enum.StrEnum):
 	MANAGE_API_TOKEN = "manage_api_token"
 	MANAGE_ENCRYPTION = "manage_encryption"
 	MANAGE_ADMINS = "manage_admins"
+	MANAGE_GLOBAL_BUMP = "manage_global_bump"
 	MANAGE_TOPICS = "manage_topics"
 	MANAGE_SCHEDULER = "manage_scheduler"
 	MANAGE_RETRIES = "manage_retries"

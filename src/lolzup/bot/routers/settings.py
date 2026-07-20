@@ -90,8 +90,11 @@ async def toggle_global_bump(
 	menu_service: MenuService,
 	menu_user_id: uuid.UUID,
 ) -> None:
-	role = await _authorize_settings_callback(callback, access_service)
-	if role is None or not await _require_idle(callback, migration_service):
+	if not await _authorize_owner_callback(
+		callback,
+		access_service,
+		AccessAction.MANAGE_GLOBAL_BUMP,
+	) or not await _require_idle(callback, migration_service):
 		return
 	if callback.message is None:
 		await callback.answer()
@@ -104,7 +107,7 @@ async def toggle_global_bump(
 		callback.message.chat.id,
 		topic_service,
 		migration_service,
-		role,
+		ActorRole.OWNER,
 	)
 	await callback.answer()
 
