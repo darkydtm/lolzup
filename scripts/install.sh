@@ -5,6 +5,13 @@ set -Eeuo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="$project_dir/.env"
 venv_dir="$project_dir/.venv"
+no_systemd=false
+
+case "${1:-}" in
+	"") ;;
+	--no-systemd) no_systemd=true ;;
+	*) echo "Usage: $0 [--no-systemd]" >&2; exit 2 ;;
+esac
 
 fail() {
 	echo "Error: $*" >&2
@@ -46,4 +53,8 @@ cd "$project_dir"
 
 echo
 echo "Installation completed. Start the bot with:"
-echo "  ./scripts/run.sh"
+if "$no_systemd"; then
+	echo "  ./scripts/run.sh --no-systemd"
+else
+	echo "  ./scripts/run.sh"
+fi

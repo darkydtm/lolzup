@@ -6,6 +6,12 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="$project_dir/.env"
 venv_python="$project_dir/.venv/bin/python"
 
+case "${1:-}" in
+	"") ;;
+	--no-systemd) ;;
+	*) echo "Usage: $0 [--no-systemd]" >&2; exit 2 ;;
+esac
+
 [[ -f "$env_file" ]] || {
 	echo "Error: .env not found. Run ./scripts/install.sh first." >&2
 	exit 1
