@@ -61,8 +61,7 @@ setup_local_postgres() {
 
 	if ! PGPASSWORD="$database_password" "$psql_command" --host="$database_host" --port="$database_port" \
 		--username="$database_user" --dbname=postgres --tuples-only --no-align \
-		--set=database_name="$database_name" \
-		--command="SELECT 1 FROM pg_database WHERE datname = :'database_name'" | grep -qx '1'; then
+		--command="SELECT 1 FROM pg_database WHERE datname = '$database_name'" | grep -qx '1'; then
 		PGPASSWORD="$database_password" "$createdb_command" --host="$database_host" --port="$database_port" \
 			--username="$database_user" "$database_name"
 	fi
@@ -81,8 +80,10 @@ read -r -p "Owner Telegram ID: " owner_id
 
 read -r -p "PostgreSQL database [lolzup]: " database_name
 database_name="${database_name:-lolzup}"
+[[ "$database_name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || fail "PostgreSQL database must be a valid identifier"
 read -r -p "PostgreSQL user [bot]: " database_user
 database_user="${database_user:-bot}"
+[[ "$database_user" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || fail "PostgreSQL user must be a valid identifier"
 read -r -s -p "PostgreSQL password [bot]: " database_password
 echo
 database_password="${database_password:-bot}"
