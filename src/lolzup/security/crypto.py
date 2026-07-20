@@ -70,6 +70,11 @@ def blind_index(index_key: bytes, value: str) -> bytes:
 	return hmac.new(index_key, value.encode(), hashlib.sha256).digest()
 
 
+def derive_index_key(data_key: bytes) -> bytes:
+	_validate_aes_key(data_key)
+	return hmac.new(data_key, b"lolzup:blind-index:v1", hashlib.sha256).digest()
+
+
 def wrap_data_key(kek: bytes, data_key: bytes, context: bytes) -> CryptoEnvelope:
 	_validate_aes_key(data_key)
 	return encrypt(kek, data_key, context)

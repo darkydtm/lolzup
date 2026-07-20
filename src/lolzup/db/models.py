@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+	JSON,
 	BigInteger,
 	Boolean,
 	CheckConstraint,
@@ -75,7 +76,7 @@ class AppSettings(TimestampMixin, Base):
 	global_interval_plain: Mapped[int | None] = mapped_column(Integer)
 	global_interval_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
 	global_interval_nonce: Mapped[bytes | None] = mapped_column(LargeBinary(12))
-	retry_schedule_plain: Mapped[str | None] = mapped_column(Text)
+	retry_schedule_plain: Mapped[list[int] | None] = mapped_column(JSON)
 	retry_schedule_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
 	retry_schedule_nonce: Mapped[bytes | None] = mapped_column(LargeBinary(12))
 	notify_success_plain: Mapped[bool | None] = mapped_column(Boolean)
