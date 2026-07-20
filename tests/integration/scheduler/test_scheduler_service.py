@@ -67,6 +67,14 @@ class FakeForum:
 		]
 
 
+@dataclass
+class FakeNotifier:
+	messages: list[str] = field(default_factory=list)
+
+	async def __call__(self, message: str) -> None:
+		self.messages.append(message)
+
+
 @pytest.mark.integration
 def test_scheduler_batches_due_topics_and_persists_partial_results() -> None:
 	async def scenario() -> None:
@@ -84,6 +92,16 @@ def test_scheduler_batches_due_topics_and_persists_partial_results() -> None:
 		sessions = async_sessionmaker(engine, expire_on_commit=False)
 		topic_ids: dict[int, uuid.UUID] = {}
 		async with sessions.begin() as session:
+			await SettingsRepository(session, codec).save(
+				SettingsRecord(
+					True,
+					72 * 3600,
+					[60, 300, 900],
+					False,
+					False,
+					False,
+				)
+			)
 			topics = TopicRepository(session, codec)
 			for thread_id in range(1, 24):
 				topic = await topics.add(
@@ -116,11 +134,13 @@ def test_scheduler_batches_due_topics_and_persists_partial_results() -> None:
 				),
 			}
 		)
+		notifier = FakeNotifier()
 		scheduler = SchedulerService(
 			sessions,
 			codec,
 			forum,
 			vault,
+			notifier=notifier,
 			job_id_factory=lambda: uuid.uuid4().hex,
 		)
 
@@ -147,7 +167,57 @@ def test_scheduler_batches_due_topics_and_persists_partial_results() -> None:
 			assert missing_topic.next_bump_at is None
 			raw_topics = await session.scalars(select(Topic))
 			assert all(topic.lease_until is None for topic in raw_topics)
+		assert len(notifier.messages) == 1
+		assert "Автоподнятие приостановлено" in notifier.messages[0]
 
+		await engine.dispose()
+
+	asyncio.run(scenario())
+
+
+@pytest.mark.integration
+def test_scheduler_sends_success_notification_when_enabled() -> None:
+	async def scenario() -> None:
+		engine = create_async_engine(os.environ["DATABASE_URL"])
+		async with engine.begin() as connection:
+			await connection.run_sync(Base.metadata.drop_all)
+			await connection.run_sync(Base.metadata.create_all)
+
+		vault = RuntimeVault()
+		await vault.unlock(generate_data_key())
+		codec = EncryptedFieldCodec(
+			EncryptionPolicy(EncryptionMode.FULL),
+			vault,
+		)
+		sessions = async_sessionmaker(engine, expire_on_commit=False)
+		async with sessions.begin() as session:
+			await SettingsRepository(session, codec).save(
+				SettingsRecord(
+					True,
+					72 * 3600,
+					[60, 300, 900],
+					True,
+					False,
+					False,
+				)
+			)
+			await TopicRepository(session, codec).add(
+				42,
+				"Topic",
+				next_bump_at=NOW,
+			)
+
+		notifier = FakeNotifier()
+		report = await SchedulerService(
+			sessions,
+			codec,
+			FakeForum(),
+			vault,
+			notifier=notifier,
+		).run_cycle(NOW)
+
+		assert report.succeeded == 1
+		assert notifier.messages == ["Тема «Topic» успешно поднята автоматически."]
 		await engine.dispose()
 
 	asyncio.run(scenario())

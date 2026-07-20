@@ -192,3 +192,21 @@ def test_close_cancels_scheduler_before_closing_resources() -> None:
 		assert application._scheduler_task is None
 
 	asyncio.run(scenario())
+
+
+@pytest.mark.unit
+def test_scheduler_notifications_are_sent_to_owner() -> None:
+	async def scenario() -> None:
+		application = build_application(settings())
+		send_message = AsyncMock()
+		cast(Any, application.bot).send_message = send_message
+
+		await application._notify_owner("Scheduler message")
+
+		send_message.assert_awaited_once_with(
+			chat_id=100,
+			text="Scheduler message",
+		)
+		await application.close()
+
+	asyncio.run(scenario())

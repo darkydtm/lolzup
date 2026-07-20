@@ -1,6 +1,7 @@
 import enum
+import logging
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 
@@ -10,6 +11,7 @@ from lolzup.db.models import AttemptOutcome
 from lolzup.db.repositories import (
 	AttemptRepository,
 	EncryptedFieldCodec,
+	SettingsRecord,
 	SettingsRepository,
 	TopicRecord,
 	TopicRepository,
@@ -25,6 +27,7 @@ DEFAULT_LEASE_SECONDS = 300
 DEFAULT_CLAIM_LIMIT = 100
 
 JobIdFactory = Callable[[], str]
+NotificationSink = Callable[[str], Awaitable[None]]
 
 
 class CycleStatus(enum.StrEnum):
@@ -56,6 +59,7 @@ class SchedulerService:
 		lease_seconds: int = DEFAULT_LEASE_SECONDS,
 		claim_limit: int = DEFAULT_CLAIM_LIMIT,
 		job_id_factory: JobIdFactory | None = None,
+		notifier: NotificationSink | None = None,
 	) -> None:
 		if lease_seconds <= 0:
 			raise ValueError("Lease duration must be positive")
@@ -68,6 +72,7 @@ class SchedulerService:
 		self._lease_seconds = lease_seconds
 		self._claim_limit = claim_limit
 		self._job_id_factory = job_id_factory or (lambda: uuid.uuid4().hex)
+		self._notifier = notifier
 
 	async def run_cycle(self, now: datetime) -> CycleReport:
 		current = self._as_utc(now)
@@ -101,7 +106,10 @@ class SchedulerService:
 						error="Forum API omitted the batch job result",
 					),
 				)
-				await self._persist_result(topic.id, result, current)
+				persisted = await self._persist_result(topic.id, result, current)
+				if persisted is not None:
+					updated, settings = persisted
+					await self._notify(updated, result, settings)
 				if result.outcome is BumpOutcome.SUCCESS:
 					succeeded += 1
 				elif result.outcome is BumpOutcome.RETRY:
@@ -142,7 +150,7 @@ class SchedulerService:
 		topic_id: uuid.UUID,
 		result: BumpResult,
 		now: datetime,
-	) -> None:
+	) -> tuple[TopicRecord, SettingsRecord] | None:
 		async with self._sessions.begin() as session:
 			topics = TopicRepository(session, self._codec)
 			attempts = AttemptRepository(session, self._codec)
@@ -150,7 +158,7 @@ class SchedulerService:
 			scheduler = SchedulerRepository(session, self._codec)
 			topic = await topics.get(topic_id)
 			if topic is None:
-				return
+				return None
 			settings = await settings_repository.get_or_create()
 			retry_count = await attempts.retry_count(topic.id, topic.last_success_at)
 			updated = self._updated_topic(
@@ -180,6 +188,49 @@ class SchedulerService:
 				BumpOutcome.FORBIDDEN,
 			}:
 				await settings_repository.save(replace(settings, api_paused=True))
+		return updated, settings
+
+	async def _notify(
+		self,
+		topic: TopicRecord,
+		result: BumpResult,
+		settings: SettingsRecord,
+	) -> None:
+		if self._notifier is None:
+			return
+		message = self._notification_text(topic, result, settings)
+		if message is None:
+			return
+		try:
+			await self._notifier(message)
+		except Exception:
+			logging.getLogger(__name__).exception("Scheduler notification failed")
+
+	@staticmethod
+	def _notification_text(
+		topic: TopicRecord,
+		result: BumpResult,
+		settings: SettingsRecord,
+	) -> str | None:
+		if result.outcome is BumpOutcome.SUCCESS:
+			if not settings.notify_success:
+				return None
+			return f"Тема «{topic.title}» успешно поднята автоматически."
+		if result.outcome in {
+			BumpOutcome.UNAUTHORIZED,
+			BumpOutcome.FORBIDDEN,
+		}:
+			return (
+				"Автоподнятие приостановлено: Forum API отклонил "
+				"авторизацию или доступ аккаунта."
+			)
+		if not settings.notify_errors:
+			return None
+		if result.outcome is BumpOutcome.RETRY:
+			return f"Тема «{topic.title}» временно не поднята. Запланирован повтор."
+		if result.outcome is BumpOutcome.NOT_FOUND:
+			return f"Тема «{topic.title}» удалена или недоступна."
+		return f"Не удалось автоматически поднять тему «{topic.title}»."
 
 	@staticmethod
 	def _updated_topic(

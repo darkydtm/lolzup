@@ -218,6 +218,7 @@ class Application:
 					EncryptedFieldCodec(policy, self.vault),
 					self.forum,
 					self.vault,
+					notifier=self._notify_owner,
 				)
 				await scheduler.run_cycle(datetime.now(UTC))
 			except asyncio.CancelledError:
@@ -225,6 +226,12 @@ class Application:
 			except Exception:
 				logging.getLogger(__name__).exception("Scheduler cycle failed")
 			await asyncio.sleep(self.settings.scheduler_poll_seconds)
+
+	async def _notify_owner(self, message: str) -> None:
+		await self.bot.send_message(
+			chat_id=int(self.settings.owner_id),
+			text=message,
+		)
 
 
 def build_application(settings: Settings) -> Application:
