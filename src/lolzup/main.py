@@ -57,6 +57,20 @@ class SessionForumClient:
 		return await self._forum.bump_batch(jobs)
 
 
+class SessionNotificationSink:
+	def __init__(
+		self,
+		session: AsyncSession,
+		notifier: Callable[[str], Awaitable[None]],
+	) -> None:
+		self._session = session
+		self._notifier = notifier
+
+	async def __call__(self, message: str) -> None:
+		await self._session.commit()
+		await self._notifier(message)
+
+
 class DependencyMiddleware(BaseMiddleware):
 	def __init__(
 		self,
@@ -142,6 +156,10 @@ class DependencyMiddleware(BaseMiddleware):
 					settings,
 					AttemptRepository(session, codec),
 					SessionForumClient(session, self._forum),
+					notifier=SessionNotificationSink(
+						session,
+						self._notify_owner,
+					),
 				),
 			}
 		)
@@ -156,6 +174,12 @@ class DependencyMiddleware(BaseMiddleware):
 			return UNKNOWN_MENU_USER_ID
 		user = await users.get_by_telegram_id(event_user.id)
 		return UNKNOWN_MENU_USER_ID if user is None else user.id
+
+	async def _notify_owner(self, message: str) -> None:
+		await self._bot.send_message(
+			chat_id=self._owner_id,
+			text=message,
+		)
 
 
 class Application:

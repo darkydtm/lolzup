@@ -1,5 +1,6 @@
+import logging
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Protocol
@@ -12,6 +13,7 @@ from lolzup.topics.schedule import effective_interval, next_bump_at
 
 Clock = Callable[[], datetime]
 JobIdFactory = Callable[[], str]
+NotificationSink = Callable[[str], Awaitable[None]]
 
 
 class TopicNotFoundError(LookupError):
@@ -69,6 +71,7 @@ class TopicService:
 		*,
 		clock: Clock | None = None,
 		job_id_factory: JobIdFactory | None = None,
+		notifier: NotificationSink | None = None,
 	) -> None:
 		self._topics = topics
 		self._settings = settings
@@ -76,6 +79,7 @@ class TopicService:
 		self._forum = forum
 		self._clock = clock or (lambda: datetime.now(UTC))
 		self._job_id_factory = job_id_factory or (lambda: uuid.uuid4().hex)
+		self._notifier = notifier
 
 	async def add(self, reference: str) -> TopicRecord:
 		thread_id = parse_topic_reference(reference)
@@ -199,6 +203,14 @@ class TopicService:
 		await self._settings.save(updated)
 		return updated
 
+	async def clear_api_pause(self) -> SettingsRecord:
+		settings = await self._settings.get_or_create()
+		if not settings.api_paused:
+			return settings
+		updated = replace(settings, api_paused=False)
+		await self._settings.save(updated)
+		return updated
+
 	async def manual_bump(self, topic_id: uuid.UUID) -> BumpResult:
 		topic = await self._require_topic(topic_id)
 		job_id = f"manual-{topic.id.hex[:16]}-{self._job_id_factory()[:16]}"
@@ -231,8 +243,26 @@ class TopicService:
 			)
 		else:
 			updated = replace(topic, last_error=result.error)
+			if result.outcome in {
+				BumpOutcome.UNAUTHORIZED,
+				BumpOutcome.FORBIDDEN,
+			}:
+				settings = await self._settings.get_or_create()
+				await self._settings.save(replace(settings, api_paused=True))
+				await self._notify_account_pause()
 		await self._topics.save(updated)
 		return result
+
+	async def _notify_account_pause(self) -> None:
+		if self._notifier is None:
+			return
+		try:
+			await self._notifier(
+				"Автоподнятие приостановлено: Forum API отклонил "
+				"авторизацию или доступ аккаунта."
+			)
+		except Exception:
+			logging.getLogger(__name__).exception("Manual bump notification failed")
 
 	async def _require_topic(self, topic_id: uuid.UUID) -> TopicRecord:
 		topic = await self._topics.get(topic_id)

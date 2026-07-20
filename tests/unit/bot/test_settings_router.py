@@ -13,6 +13,7 @@ from lolzup.bot.routers.settings import (
 	CURRENT_PASSWORD_KEY,
 	NEW_PASSWORD_KEY,
 	begin_api_token,
+	receive_api_token,
 	receive_new_password_confirmation,
 	toggle_global_bump,
 )
@@ -179,6 +180,45 @@ def test_admin_cannot_begin_api_token_replacement() -> None:
 		incoming.answer.assert_awaited_once_with(
 			"Доступ запрещен.",
 			show_alert=True,
+		)
+
+	asyncio.run(scenario())
+
+
+@pytest.mark.unit
+def test_api_token_replacement_resumes_scheduler() -> None:
+	async def scenario() -> None:
+		incoming = message("replacement-token")
+		state = Mock(spec=FSMContext)
+		state.clear = AsyncMock()
+		access = Mock(spec=AccessService)
+		access.require = AsyncMock(return_value=ActorRole.OWNER)
+		setup = Mock(spec=SetupService)
+		setup.replace_api_token = AsyncMock()
+		migrations = Mock(spec=EncryptionMigrationService)
+		migrations.status = AsyncMock(return_value=migration())
+		menu = Mock(spec=MenuService)
+		menu.render = AsyncMock()
+		topics = Mock(spec=TopicService)
+		topics.clear_api_pause = AsyncMock()
+		topics.settings = AsyncMock(return_value=settings())
+
+		await receive_api_token(
+			cast(Message, incoming),
+			cast(FSMContext, state),
+			cast(AccessService, access),
+			cast(SetupService, setup),
+			cast(EncryptionMigrationService, migrations),
+			cast(MenuService, menu),
+			uuid.uuid4(),
+			cast(TopicService, topics),
+		)
+
+		setup.replace_api_token.assert_awaited_once()
+		topics.clear_api_pause.assert_awaited_once()
+		incoming.answer.assert_awaited_once_with(
+			"API token заменен.",
+			reply_markup=incoming.answer.await_args.kwargs["reply_markup"],
 		)
 
 	asyncio.run(scenario())

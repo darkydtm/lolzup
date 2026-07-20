@@ -329,6 +329,7 @@ async def receive_api_token(
 		await message.answer("API token не может быть пустым.")
 		return
 	await setup_service.replace_api_token(token, status.target_policy)
+	await topic_service.clear_api_pause()
 	await _render_settings(
 		menu_service,
 		menu_user_id,

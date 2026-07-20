@@ -126,6 +126,14 @@ class FakeForum:
 		]
 
 
+@dataclass
+class FakeNotifier:
+	messages: list[str] = field(default_factory=list)
+
+	async def __call__(self, message: str) -> None:
+		self.messages.append(message)
+
+
 def topic_record(
 	*,
 	thread_id: int = 5523020,
@@ -156,6 +164,7 @@ def build_service(
 	settings: FakeSettings | None = None,
 	attempts: FakeAttempts | None = None,
 	forum: FakeForum | None = None,
+	notifier: FakeNotifier | None = None,
 ) -> tuple[TopicService, FakeTopics, FakeSettings, FakeAttempts, FakeForum]:
 	active_topics = topics or FakeTopics()
 	active_settings = settings or FakeSettings()
@@ -168,6 +177,7 @@ def build_service(
 		active_forum,
 		clock=lambda: NOW,
 		job_id_factory=lambda: "fixed-job-id",
+		notifier=notifier,
 	)
 	return service, active_topics, active_settings, active_attempts, active_forum
 
@@ -306,6 +316,39 @@ def test_failed_manual_bump_records_error_without_rescheduling() -> None:
 		assert attempts.calls[0].outcome is AttemptOutcome.RETRY
 		assert topics.records[topic.id].next_bump_at == next_at
 		assert topics.records[topic.id].last_error == "Forum API returned status 429"
+
+	asyncio.run(scenario())
+
+
+@pytest.mark.unit
+def test_manual_account_failure_pauses_scheduler_and_notifies_owner() -> None:
+	async def scenario() -> None:
+		topic = topic_record()
+		topics = FakeTopics({topic.id: topic})
+		settings = FakeSettings()
+		notifier = FakeNotifier()
+		forum = FakeForum(
+			bump_result=BumpResult(
+				"unused",
+				topic.thread_id,
+				BumpOutcome.UNAUTHORIZED,
+				error="unauthorized",
+			)
+		)
+		service, _, _, _, _ = build_service(
+			topics=topics,
+			settings=settings,
+			forum=forum,
+			notifier=notifier,
+		)
+
+		await service.manual_bump(topic.id)
+
+		assert settings.record.api_paused
+		assert notifier.messages == [
+			"Автоподнятие приостановлено: Forum API отклонил "
+			"авторизацию или доступ аккаунта."
+		]
 
 	asyncio.run(scenario())
 

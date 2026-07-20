@@ -16,6 +16,7 @@ from lolzup.main import (
 	FORUM_BASE_URL,
 	DependencyMiddleware,
 	SessionForumClient,
+	SessionNotificationSink,
 	build_application,
 )
 from lolzup.security.runtime import RuntimeVault
@@ -89,6 +90,26 @@ def test_session_forum_client_commits_before_http_requests() -> None:
 		assert session.commit.await_count == 2
 		forum.get_thread.assert_awaited_once_with(5523020)
 		forum.bump_batch.assert_awaited_once()
+
+	asyncio.run(scenario())
+
+
+@pytest.mark.unit
+def test_session_notification_sink_commits_before_telegram_request() -> None:
+	async def scenario() -> None:
+		order: list[str] = []
+		session = Mock(spec=AsyncSession)
+		session.commit = AsyncMock(side_effect=lambda: order.append("commit"))
+
+		async def notifier(_: str) -> None:
+			order.append("notify")
+
+		await SessionNotificationSink(
+			cast(AsyncSession, session),
+			notifier,
+		)("message")
+
+		assert order == ["commit", "notify"]
 
 	asyncio.run(scenario())
 
