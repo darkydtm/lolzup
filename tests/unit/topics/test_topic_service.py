@@ -187,6 +187,20 @@ def test_add_resolves_title_before_storing_topic() -> None:
 
 
 @pytest.mark.unit
+def test_read_methods_return_domain_records() -> None:
+	async def scenario() -> None:
+		topic = topic_record()
+		topics = FakeTopics({topic.id: topic})
+		service, _, settings, _, _ = build_service(topics=topics)
+
+		assert await service.get(topic.id) == topic
+		assert await service.list() == [topic]
+		assert await service.settings() == settings.record
+
+	asyncio.run(scenario())
+
+
+@pytest.mark.unit
 def test_topic_toggle_and_custom_interval_recalculate_schedule() -> None:
 	async def scenario() -> None:
 		topic = topic_record(next_bump_at=NOW - timedelta(hours=1))

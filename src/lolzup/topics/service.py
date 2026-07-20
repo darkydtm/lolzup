@@ -92,6 +92,15 @@ class TopicService:
 			next_bump_at=self._now() + interval,
 		)
 
+	async def get(self, topic_id: uuid.UUID) -> TopicRecord:
+		return await self._require_topic(topic_id)
+
+	async def list(self) -> list[TopicRecord]:
+		return await self._topics.list()
+
+	async def settings(self) -> SettingsRecord:
+		return await self._settings.get_or_create()
+
 	async def remove(self, topic_id: uuid.UUID) -> None:
 		await self._require_topic(topic_id)
 		await self._topics.remove(topic_id)

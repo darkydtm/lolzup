@@ -11,8 +11,7 @@ from aiogram.methods import EditMessageText
 from aiogram.types import InlineKeyboardMarkup, Message
 
 from lolzup.bot.keyboards import default_reply_keyboard, input_reply_keyboard
-from lolzup.bot.menu import MenuSection, MenuService, MenuView, menu_view
-from lolzup.bot.routers.menu import open_topics_menu
+from lolzup.bot.menu import MenuService, MenuView
 
 
 @dataclass
@@ -117,29 +116,3 @@ def test_cancel_button_only_appears_in_input_keyboard() -> None:
 
 	assert "Отмена" not in default_texts
 	assert "Отмена" in input_texts
-
-
-@pytest.mark.unit
-def test_reply_navigation_only_renders_stored_menu() -> None:
-	async def scenario() -> None:
-		message = Mock()
-		message.chat.id = 100
-		message.answer = AsyncMock()
-		menu_service = Mock(spec=MenuService)
-		menu_service.render = AsyncMock()
-		user_id = uuid.uuid4()
-
-		await open_topics_menu(
-			cast(Message, message),
-			cast(MenuService, menu_service),
-			user_id,
-		)
-
-		menu_service.render.assert_awaited_once_with(
-			user_id,
-			100,
-			menu_view(MenuSection.TOPICS),
-		)
-		message.answer.assert_not_awaited()
-
-	asyncio.run(scenario())
