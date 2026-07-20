@@ -75,6 +75,11 @@ def derive_index_key(data_key: bytes) -> bytes:
 	return hmac.new(data_key, b"lolzup:blind-index:v1", hashlib.sha256).digest()
 
 
+def derive_password_verifier(kek: bytes) -> bytes:
+	_validate_aes_key(kek)
+	return hmac.new(kek, b"lolzup:password-verifier:v1", hashlib.sha256).digest()
+
+
 def wrap_data_key(kek: bytes, data_key: bytes, context: bytes) -> CryptoEnvelope:
 	_validate_aes_key(data_key)
 	return encrypt(kek, data_key, context)

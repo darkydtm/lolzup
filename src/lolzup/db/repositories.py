@@ -15,6 +15,7 @@ from lolzup.db.models import (
 	BumpAttempt,
 	KnownUser,
 	MenuReference,
+	SecretEnvelope,
 	Topic,
 )
 from lolzup.security.crypto import (
@@ -69,6 +70,20 @@ class SettingsRecord:
 	notify_success: bool
 	notify_errors: bool
 	api_paused: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SecretEnvelopeRecord:
+	salt: bytes
+	argon_time_cost: int
+	argon_memory_cost: int
+	argon_parallelism: int
+	verifier: bytes
+	wrapped_data_key: bytes
+	wrapped_data_key_nonce: bytes
+	api_token_plain: str | None
+	api_token_ciphertext: bytes | None
+	api_token_nonce: bytes | None
 
 
 class EncryptedFieldCodec:
@@ -128,6 +143,48 @@ class EncryptedFieldCodec:
 		if payload["type"] == "datetime":
 			return datetime.fromisoformat(payload["value"])
 		return payload["value"]
+
+
+class SecretRepository:
+	def __init__(self, session: AsyncSession) -> None:
+		self._session = session
+
+	async def get(self) -> SecretEnvelopeRecord | None:
+		model = await self._session.get(SecretEnvelope, 1)
+		if model is None:
+			return None
+		return SecretEnvelopeRecord(
+			salt=model.salt,
+			argon_time_cost=model.argon_time_cost,
+			argon_memory_cost=model.argon_memory_cost,
+			argon_parallelism=model.argon_parallelism,
+			verifier=model.verifier,
+			wrapped_data_key=model.wrapped_data_key,
+			wrapped_data_key_nonce=model.wrapped_data_key_nonce,
+			api_token_plain=model.api_token_plain,
+			api_token_ciphertext=model.api_token_ciphertext,
+			api_token_nonce=model.api_token_nonce,
+		)
+
+	async def create(self, record: SecretEnvelopeRecord) -> None:
+		if await self.get() is not None:
+			raise ValueError("Secret envelope is already initialized")
+		self._session.add(
+			SecretEnvelope(
+				id=1,
+				salt=record.salt,
+				argon_time_cost=record.argon_time_cost,
+				argon_memory_cost=record.argon_memory_cost,
+				argon_parallelism=record.argon_parallelism,
+				verifier=record.verifier,
+				wrapped_data_key=record.wrapped_data_key,
+				wrapped_data_key_nonce=record.wrapped_data_key_nonce,
+				api_token_plain=record.api_token_plain,
+				api_token_ciphertext=record.api_token_ciphertext,
+				api_token_nonce=record.api_token_nonce,
+			)
+		)
+		await self._session.flush()
 
 
 class SettingsRepository:
