@@ -21,7 +21,7 @@ class SchedulerRepository:
 		return (
 			await self._session.scalar(
 				select(EncryptionMigration.id).where(
-					EncryptionMigration.status == MigrationStatus.RUNNING
+					EncryptionMigration.status != MigrationStatus.IDLE
 				)
 			)
 			is not None

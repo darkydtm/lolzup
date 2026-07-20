@@ -186,6 +186,22 @@ class SecretRepository:
 		)
 		await self._session.flush()
 
+	async def save(self, record: SecretEnvelopeRecord) -> None:
+		model = await self._session.get(SecretEnvelope, 1)
+		if model is None:
+			raise KeyError(1)
+		model.salt = record.salt
+		model.argon_time_cost = record.argon_time_cost
+		model.argon_memory_cost = record.argon_memory_cost
+		model.argon_parallelism = record.argon_parallelism
+		model.verifier = record.verifier
+		model.wrapped_data_key = record.wrapped_data_key
+		model.wrapped_data_key_nonce = record.wrapped_data_key_nonce
+		model.api_token_plain = record.api_token_plain
+		model.api_token_ciphertext = record.api_token_ciphertext
+		model.api_token_nonce = record.api_token_nonce
+		await self._session.flush()
+
 
 class SettingsRepository:
 	def __init__(self, session: AsyncSession, codec: EncryptedFieldCodec) -> None:

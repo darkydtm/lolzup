@@ -32,3 +32,13 @@ def test_custom_policy_encrypts_selected_categories_and_secrets() -> None:
 	assert policy.encrypts(DataCategory.HISTORY)
 	assert not policy.encrypts(DataCategory.SCHEDULING)
 	assert not policy.encrypts(DataCategory.TELEGRAM_IDENTITIES)
+
+
+@pytest.mark.unit
+def test_policy_serialization_round_trip_is_stable() -> None:
+	policy = EncryptionPolicy(
+		EncryptionMode.CUSTOM,
+		frozenset({DataCategory.TOPICS, DataCategory.HISTORY}),
+	)
+
+	assert EncryptionPolicy.deserialize(policy.serialize()) == policy
