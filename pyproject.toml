@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "lolzup"
 version = "0.1.0"
 description = "Telegram bot for scheduled Lolzteam topic bumps"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.13,<3.14"
 dependencies = [
 	"aiogram==3.29.1",
 	"SQLAlchemy==2.0.51",
@@ -30,7 +30,7 @@ dev = [
 where = ["src"]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.format]
 indent-style = "tab"
@@ -39,7 +39,7 @@ indent-style = "tab"
 select = ["E", "F", "I", "UP"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 strict = true
 files = ["src", "tests"]
 

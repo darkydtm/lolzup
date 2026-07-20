@@ -12,7 +12,7 @@ fail() {
 	exit 1
 }
 
-command -v python3.12 >/dev/null 2>&1 || fail "Python 3.12 is required"
+command -v python3.13 >/dev/null 2>&1 || fail "Python 3.13 is required"
 command -v docker >/dev/null 2>&1 || fail "Docker is required"
 
 read -r -p "Telegram bot token: " bot_token
@@ -58,7 +58,7 @@ umask 077
 printf 'BOT_TOKEN=%s\nOWNER_ID=%s\nDATABASE_URL=%s\nLOG_LEVEL=INFO\nSCHEDULER_POLL_SECONDS=60\n' \
 	"$bot_token" "$owner_id" "$database_url" > "$env_file"
 
-python3.12 -m venv "$venv_dir"
+python3.13 -m venv "$venv_dir"
 "$venv_dir/bin/python" -m pip install --upgrade pip
 "$venv_dir/bin/python" -m pip install -e "$project_dir"
 
