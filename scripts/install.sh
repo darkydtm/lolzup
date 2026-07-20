@@ -6,6 +6,7 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="$project_dir/.env"
 venv_dir="$project_dir/.venv"
 postgres_data_dir="$project_dir/.postgres"
+postgres_socket_dir="$project_dir/.postgres-socket"
 no_systemd=false
 initdb_command=""
 pg_ctl_command=""
@@ -52,7 +53,10 @@ setup_local_postgres() {
 	fi
 
 	if ! "$pg_ctl_command" --pgdata="$postgres_data_dir" status >/dev/null 2>&1; then
-		"$pg_ctl_command" --pgdata="$postgres_data_dir" --wait start --options="-p $database_port"
+		mkdir -p "$postgres_socket_dir"
+		chmod 700 "$postgres_socket_dir"
+		"$pg_ctl_command" --pgdata="$postgres_data_dir" --wait start \
+			--options="-p $database_port -k $postgres_socket_dir"
 	fi
 
 	if ! PGPASSWORD="$database_password" "$psql_command" --host="$database_host" --port="$database_port" \

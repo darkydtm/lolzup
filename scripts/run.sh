@@ -6,6 +6,7 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="$project_dir/.env"
 venv_python="$project_dir/.venv/bin/python"
 postgres_data_dir="$project_dir/.postgres"
+postgres_socket_dir="$project_dir/.postgres-socket"
 no_systemd=false
 pg_ctl_command=""
 
@@ -47,7 +48,10 @@ set +a
 
 if "$no_systemd" && ! "$pg_ctl_command" --pgdata="$postgres_data_dir" status >/dev/null 2>&1; then
 	database_port="$($venv_python -c 'import os; from urllib.parse import urlparse; print(urlparse(os.environ["DATABASE_URL"]).port)')"
-	"$pg_ctl_command" --pgdata="$postgres_data_dir" --wait start --options="-p $database_port"
+	mkdir -p "$postgres_socket_dir"
+	chmod 700 "$postgres_socket_dir"
+	"$pg_ctl_command" --pgdata="$postgres_data_dir" --wait start \
+		--options="-p $database_port -k $postgres_socket_dir"
 fi
 
 exec "$venv_python" -m lolzup.main

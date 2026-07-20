@@ -4,6 +4,7 @@
 .ruff_cache/
 .venv/
 .postgres/
+.postgres-socket/
 __pycache__/
 *.py[cod]
 *.egg-info/
