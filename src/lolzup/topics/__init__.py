@@ -6,11 +6,14 @@ from lolzup.topics.schedule import (
 	format_topic_timing,
 	next_bump_at,
 )
+from lolzup.topics.service import TopicNotFoundError, TopicService
 
 __all__ = [
 	"InvalidTopicReferenceError",
 	"TopicTiming",
 	"TopicTimingState",
+	"TopicNotFoundError",
+	"TopicService",
 	"effective_interval",
 	"format_topic_timing",
 	"next_bump_at",

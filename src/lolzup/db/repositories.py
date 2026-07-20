@@ -345,7 +345,12 @@ class TopicRepository:
 		self._session = session
 		self._codec = codec
 
-	async def add(self, thread_id: int, title: str) -> TopicRecord:
+	async def add(
+		self,
+		thread_id: int,
+		title: str,
+		next_bump_at: datetime | None = None,
+	) -> TopicRecord:
 		model = Topic(
 			id=uuid.uuid4(), thread_id_index=self._codec.index(str(thread_id))
 		)
@@ -355,7 +360,7 @@ class TopicRepository:
 		self._assign(model, DataCategory.SCHEDULING, "custom_interval_enabled", False)
 		self._assign(model, DataCategory.SCHEDULING, "custom_interval", None)
 		self._assign(model, DataCategory.HISTORY, "last_success_at", None)
-		self._assign(model, DataCategory.SCHEDULING, "next_bump_at", None)
+		self._assign(model, DataCategory.SCHEDULING, "next_bump_at", next_bump_at)
 		self._assign(model, DataCategory.HISTORY, "last_error", None)
 		try:
 			async with self._session.begin_nested():
@@ -375,6 +380,43 @@ class TopicRepository:
 
 	async def remove(self, topic_id: uuid.UUID) -> None:
 		await self._session.execute(delete(Topic).where(Topic.id == topic_id))
+
+	async def save(self, record: TopicRecord) -> None:
+		model = await self._session.get(Topic, record.id)
+		if model is None:
+			raise KeyError(record.id)
+		self._assign(
+			model,
+			DataCategory.SCHEDULING,
+			"auto_bump_enabled",
+			record.auto_bump_enabled,
+		)
+		self._assign(
+			model,
+			DataCategory.SCHEDULING,
+			"custom_interval_enabled",
+			record.custom_interval_enabled,
+		)
+		self._assign(
+			model,
+			DataCategory.SCHEDULING,
+			"custom_interval",
+			record.custom_interval_seconds,
+		)
+		self._assign(
+			model,
+			DataCategory.HISTORY,
+			"last_success_at",
+			record.last_success_at,
+		)
+		self._assign(
+			model,
+			DataCategory.SCHEDULING,
+			"next_bump_at",
+			record.next_bump_at,
+		)
+		self._assign(model, DataCategory.HISTORY, "last_error", record.last_error)
+		await self._session.flush()
 
 	def _assign(
 		self,
