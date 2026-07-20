@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import (
 from lolzup.access import AccessAction, AccessService
 from lolzup.bot.menu import MenuService
 from lolzup.bot.routers import build_routers
+from lolzup.bot.timeout import InputTimeoutMiddleware
 from lolzup.config import Settings
 from lolzup.db.migrations import EncryptionMigrationService, load_active_policy
 from lolzup.db.repositories import (
@@ -193,6 +194,7 @@ class Application:
 		http_client: httpx.AsyncClient,
 		vault: RuntimeVault,
 		forum: ForumApiClient,
+		input_timeout: InputTimeoutMiddleware,
 	) -> None:
 		self.settings = settings
 		self.engine = engine
@@ -202,6 +204,7 @@ class Application:
 		self.http_client = http_client
 		self.vault = vault
 		self.forum = forum
+		self.input_timeout = input_timeout
 		self._scheduler_task: asyncio.Task[None] | None = None
 		self._closed = False
 
@@ -227,6 +230,7 @@ class Application:
 			self._scheduler_task.cancel()
 			await asyncio.gather(self._scheduler_task, return_exceptions=True)
 			self._scheduler_task = None
+		await self.input_timeout.close()
 		await self.bot.session.close()
 		await self.http_client.aclose()
 		await self.engine.dispose()
@@ -269,6 +273,7 @@ def build_application(settings: Settings) -> Application:
 	vault = RuntimeVault()
 	throttle = UnlockThrottleState()
 	migrations = EncryptionMigrationService(sessions, vault)
+	input_timeout = InputTimeoutMiddleware(bot)
 
 	async def token_provider() -> str:
 		async with sessions.begin() as session:
@@ -290,6 +295,7 @@ def build_application(settings: Settings) -> Application:
 			int(settings.owner_id),
 		)
 	)
+	dispatcher.update.outer_middleware(input_timeout)
 	dispatcher.include_routers(*build_routers())
 	return Application(
 		settings,
@@ -300,6 +306,7 @@ def build_application(settings: Settings) -> Application:
 		http_client,
 		vault,
 		forum,
+		input_timeout,
 	)
 
 
