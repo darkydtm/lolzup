@@ -7,6 +7,7 @@ env_file="$project_dir/.env"
 venv_python="$project_dir/.venv/bin/python"
 postgres_data_dir="$project_dir/.postgres"
 no_systemd=false
+pg_ctl_command=""
 
 case "${1:-}" in
 	"") ;;
@@ -28,7 +29,12 @@ if "$no_systemd"; then
 		echo "Error: local PostgreSQL is not initialized. Run ./scripts/install.sh --no-systemd first." >&2
 		exit 1
 	}
-	command -v pg_ctl >/dev/null 2>&1 || {
+	command -v pg_config >/dev/null 2>&1 || {
+		echo "Error: pg_config is required for --no-systemd." >&2
+		exit 1
+	}
+	pg_ctl_command="$(pg_config --bindir)/pg_ctl"
+	[[ -x "$pg_ctl_command" ]] || {
 		echo "Error: pg_ctl is required for --no-systemd." >&2
 		exit 1
 	}
@@ -39,9 +45,9 @@ set -a
 source "$env_file"
 set +a
 
-if "$no_systemd" && ! pg_ctl --pgdata="$postgres_data_dir" status >/dev/null 2>&1; then
+if "$no_systemd" && ! "$pg_ctl_command" --pgdata="$postgres_data_dir" status >/dev/null 2>&1; then
 	database_port="$($venv_python -c 'import os; from urllib.parse import urlparse; print(urlparse(os.environ["DATABASE_URL"]).port)')"
-	pg_ctl --pgdata="$postgres_data_dir" --wait start --options="-p $database_port"
+	"$pg_ctl_command" --pgdata="$postgres_data_dir" --wait start --options="-p $database_port"
 fi
 
 exec "$venv_python" -m lolzup.main

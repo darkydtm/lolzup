@@ -7,6 +7,10 @@ env_file="$project_dir/.env"
 venv_dir="$project_dir/.venv"
 postgres_data_dir="$project_dir/.postgres"
 no_systemd=false
+initdb_command=""
+pg_ctl_command=""
+psql_command=""
+createdb_command=""
 
 case "${1:-}" in
 	"") ;;
@@ -20,10 +24,17 @@ fail() {
 }
 
 require_local_postgres_commands() {
-	command -v initdb >/dev/null 2>&1 || fail "initdb is required for --no-systemd"
-	command -v pg_ctl >/dev/null 2>&1 || fail "pg_ctl is required for --no-systemd"
-	command -v psql >/dev/null 2>&1 || fail "psql is required for --no-systemd"
-	command -v createdb >/dev/null 2>&1 || fail "createdb is required for --no-systemd"
+	local postgres_bin_dir
+	command -v pg_config >/dev/null 2>&1 || fail "pg_config is required for --no-systemd"
+	postgres_bin_dir="$(pg_config --bindir)"
+	initdb_command="$postgres_bin_dir/initdb"
+	pg_ctl_command="$postgres_bin_dir/pg_ctl"
+	psql_command="$postgres_bin_dir/psql"
+	createdb_command="$postgres_bin_dir/createdb"
+	[[ -x "$initdb_command" ]] || fail "initdb is required for --no-systemd"
+	[[ -x "$pg_ctl_command" ]] || fail "pg_ctl is required for --no-systemd"
+	[[ -x "$psql_command" ]] || fail "psql is required for --no-systemd"
+	[[ -x "$createdb_command" ]] || fail "createdb is required for --no-systemd"
 }
 
 setup_local_postgres() {
@@ -35,20 +46,20 @@ setup_local_postgres() {
 		password_file="$(mktemp)"
 		chmod 600 "$password_file"
 		printf '%s' "$database_password" > "$password_file"
-		initdb --pgdata="$postgres_data_dir" --username="$database_user" \
+		"$initdb_command" --pgdata="$postgres_data_dir" --username="$database_user" \
 			--pwfile="$password_file" --auth-host=scram-sha-256 --auth-local=peer
 		rm -f "$password_file"
 	fi
 
-	if ! pg_ctl --pgdata="$postgres_data_dir" status >/dev/null 2>&1; then
-		pg_ctl --pgdata="$postgres_data_dir" --wait start --options="-p $database_port"
+	if ! "$pg_ctl_command" --pgdata="$postgres_data_dir" status >/dev/null 2>&1; then
+		"$pg_ctl_command" --pgdata="$postgres_data_dir" --wait start --options="-p $database_port"
 	fi
 
-	if ! PGPASSWORD="$database_password" psql --host="$database_host" --port="$database_port" \
+	if ! PGPASSWORD="$database_password" "$psql_command" --host="$database_host" --port="$database_port" \
 		--username="$database_user" --dbname=postgres --tuples-only --no-align \
 		--set=database_name="$database_name" \
 		--command="SELECT 1 FROM pg_database WHERE datname = :'database_name'" | grep -qx '1'; then
-		PGPASSWORD="$database_password" createdb --host="$database_host" --port="$database_port" \
+		PGPASSWORD="$database_password" "$createdb_command" --host="$database_host" --port="$database_port" \
 			--username="$database_user" "$database_name"
 	fi
 }
