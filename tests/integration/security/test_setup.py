@@ -6,9 +6,10 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from lolzup.db.models import Base, SecretEnvelope
+from lolzup.db.models import Base, EncryptionMode, SecretEnvelope
 from lolzup.db.repositories import SecretRepository
 from lolzup.security.crypto import Argon2Parameters
+from lolzup.security.policy import EncryptionPolicy
 from lolzup.security.runtime import BotLockedError, RuntimeVault
 from lolzup.security.setup import (
 	AlreadyInitializedError,
@@ -80,6 +81,26 @@ def test_initialization_restart_unlock_and_throttling() -> None:
 			await restarted.unlock("correct password")
 			assert vault.is_unlocked
 			assert await restarted.api_token() == "api-secret-token"
+
+			await restarted.change_password("correct password", "new password")
+			await restarted.replace_api_token(
+				"replacement-token",
+				EncryptionPolicy(EncryptionMode.DISABLED),
+			)
+			assert await restarted.api_token() == "replacement-token"
+
+		await vault.lock()
+		async with sessions.begin() as session:
+			rotated = SetupService(
+				SecretRepository(session),
+				vault,
+				clock=clock,
+			)
+			with pytest.raises(InvalidPasswordError):
+				await rotated.unlock("correct password")
+			now += timedelta(seconds=1)
+			await rotated.unlock("new password")
+			assert await rotated.api_token() == "replacement-token"
 
 		await engine.dispose()
 
