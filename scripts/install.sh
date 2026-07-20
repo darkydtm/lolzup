@@ -41,7 +41,7 @@ database_port="${database_port:-5432}"
 
 database_url="postgresql+asyncpg://$database_user:$database_password@$database_host:$database_port/$database_name"
 umask 077
-printf 'BOT_TOKEN=%s\nOWNER_ID=%s\nDATABASE_URL=%s\nLOG_LEVEL=INFO\nSCHEDULER_POLL_SECONDS=60\n' \
+printf 'BOT_TOKEN=%q\nOWNER_ID=%q\nDATABASE_URL=%q\nLOG_LEVEL=INFO\nSCHEDULER_POLL_SECONDS=60\n' \
 	"$bot_token" "$owner_id" "$database_url" > "$env_file"
 
 python3.13 -m venv "$venv_dir"
