@@ -54,6 +54,12 @@ def test_initial_schema_contains_required_tables_and_constraints() -> None:
 				column_type = next_bump_column["type"]
 				assert isinstance(column_type, DateTime)
 				assert column_type.timezone is True
+				topic_indexes = inspector.get_indexes("topics")
+				assert any(
+					index["name"] == "ix_topics_schedule_due"
+					and index["column_names"] == ["schedule_due_at", "lease_until"]
+					for index in topic_indexes
+				)
 
 			await connection.run_sync(assert_schema)
 		await engine.dispose()

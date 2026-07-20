@@ -361,6 +361,7 @@ class TopicRepository:
 		self._assign(model, DataCategory.SCHEDULING, "custom_interval", None)
 		self._assign(model, DataCategory.HISTORY, "last_success_at", None)
 		self._assign(model, DataCategory.SCHEDULING, "next_bump_at", next_bump_at)
+		model.schedule_due_at = next_bump_at
 		self._assign(model, DataCategory.HISTORY, "last_error", None)
 		try:
 			async with self._session.begin_nested():
@@ -414,6 +415,9 @@ class TopicRepository:
 			DataCategory.SCHEDULING,
 			"next_bump_at",
 			record.next_bump_at,
+		)
+		model.schedule_due_at = (
+			record.next_bump_at if record.auto_bump_enabled else None
 		)
 		self._assign(model, DataCategory.HISTORY, "last_error", record.last_error)
 		await self._session.flush()

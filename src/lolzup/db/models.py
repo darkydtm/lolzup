@@ -140,6 +140,7 @@ class Topic(TimestampMixin, Base):
 			"custom_interval_plain IS NULL OR custom_interval_plain > 0",
 			name="ck_topics_positive_custom_interval",
 		),
+		Index("ix_topics_schedule_due", "schedule_due_at", "lease_until"),
 	)
 
 	id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -171,6 +172,7 @@ class Topic(TimestampMixin, Base):
 	next_bump_at_plain: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 	next_bump_at_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
 	next_bump_at_nonce: Mapped[bytes | None] = mapped_column(LargeBinary(12))
+	schedule_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 	lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 	last_error_plain: Mapped[str | None] = mapped_column(Text)
 	last_error_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)

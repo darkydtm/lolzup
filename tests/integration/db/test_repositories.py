@@ -72,6 +72,7 @@ def test_repositories_hide_encrypted_values_and_support_indexes() -> None:
 			assert raw_topic is not None
 			assert raw_topic.thread_id_plain is None
 			assert raw_topic.thread_id_ciphertext is not None
+			assert raw_topic.schedule_due_at == topic.next_bump_at
 
 		await engine.dispose()
 
