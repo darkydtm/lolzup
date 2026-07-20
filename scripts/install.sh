@@ -19,11 +19,14 @@ fail() {
 	exit 1
 }
 
-setup_local_postgres() {
+require_local_postgres_commands() {
 	command -v initdb >/dev/null 2>&1 || fail "initdb is required for --no-systemd"
 	command -v pg_ctl >/dev/null 2>&1 || fail "pg_ctl is required for --no-systemd"
 	command -v psql >/dev/null 2>&1 || fail "psql is required for --no-systemd"
 	command -v createdb >/dev/null 2>&1 || fail "createdb is required for --no-systemd"
+}
+
+setup_local_postgres() {
 	[[ "$database_host" == "127.0.0.1" || "$database_host" == "localhost" ]] \
 		|| fail "--no-systemd requires a local PostgreSQL host"
 
@@ -51,6 +54,9 @@ setup_local_postgres() {
 }
 
 command -v python3.13 >/dev/null 2>&1 || fail "Python 3.13 is required"
+if "$no_systemd"; then
+	require_local_postgres_commands
+fi
 
 read -r -p "Telegram bot token: " bot_token
 [[ -n "$bot_token" ]] || fail "Telegram bot token cannot be empty"
