@@ -49,6 +49,9 @@ python3.13 -m venv "$venv_dir"
 "$venv_dir/bin/python" -m pip install -e "$project_dir"
 
 cd "$project_dir"
+set -a
+source "$env_file"
+set +a
 "$venv_dir/bin/alembic" upgrade head
 
 echo
