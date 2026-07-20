@@ -39,7 +39,14 @@ read -r -p "PostgreSQL port [5432]: " database_port
 database_port="${database_port:-5432}"
 [[ "$database_port" =~ ^[1-9][0-9]*$ ]] || fail "PostgreSQL port must be a positive integer"
 
-database_url="postgresql+asyncpg://$database_user:$database_password@$database_host:$database_port/$database_name"
+database_url="$({
+	export DATABASE_USER="$database_user"
+	export DATABASE_PASSWORD="$database_password"
+	export DATABASE_HOST="$database_host"
+	export DATABASE_PORT="$database_port"
+	export DATABASE_NAME="$database_name"
+	python3.13 -c 'import os; from urllib.parse import quote; print("postgresql+asyncpg://%s:%s@%s:%s/%s" % (quote(os.environ["DATABASE_USER"], safe=""), quote(os.environ["DATABASE_PASSWORD"], safe=""), os.environ["DATABASE_HOST"], os.environ["DATABASE_PORT"], quote(os.environ["DATABASE_NAME"], safe="")))'
+})"
 umask 077
 printf 'BOT_TOKEN=%q\nOWNER_ID=%q\nDATABASE_URL=%q\nLOG_LEVEL=INFO\nSCHEDULER_POLL_SECONDS=60\n' \
 	"$bot_token" "$owner_id" "$database_url" > "$env_file"
