@@ -7,7 +7,11 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import InlineKeyboardMarkup, Message
 
-from lolzup.bot.keyboards import back_to_main_keyboard, main_inline_keyboard
+from lolzup.bot.keyboards import (
+	back_to_main_keyboard,
+	main_inline_keyboard,
+	settings_inline_keyboard,
+)
 
 
 class MenuSection(StrEnum):
@@ -42,7 +46,7 @@ def menu_view(section: MenuSection, global_enabled: bool = True) -> MenuView:
 	if section is MenuSection.SETTINGS:
 		return MenuView(
 			text="Настройки",
-			reply_markup=back_to_main_keyboard(),
+			reply_markup=settings_inline_keyboard(),
 		)
 
 	status = "включено" if global_enabled else "выключено"

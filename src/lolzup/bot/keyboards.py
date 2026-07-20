@@ -72,3 +72,22 @@ def back_to_main_keyboard() -> InlineKeyboardMarkup:
 			]
 		]
 	)
+
+
+def settings_inline_keyboard() -> InlineKeyboardMarkup:
+	return InlineKeyboardMarkup(
+		inline_keyboard=[
+			[
+				InlineKeyboardButton(
+					text="Администраторы",
+					callback_data="admins:list",
+				)
+			],
+			[
+				InlineKeyboardButton(
+					text=MAIN_MENU_TEXT,
+					callback_data="menu:main",
+				)
+			],
+		]
+	)
